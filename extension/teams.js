@@ -19,6 +19,12 @@
     allowMic: ['السماح بالميكروفون', 'Allow mic', 'السماح بإلغاء كتم الصوت', 'Allow to unmute'],
     chat: ['الدردشة', 'Chat'],
     send: ['إرسال', 'Send'],
+    moreTop: ['المزيد', 'More actions', 'More'],
+    settings: ['الإعدادات', 'Settings'],
+    meetingOptions: ['خيارات الاجتماع', 'Meeting options'],
+    allowMic: ['السماح بالميكروفون للحضور', 'السماح للحضور بإلغاء كتم الصوت', 'Allow mic for attendees', 'Allow attendees to unmute'],
+    allowCam: ['السماح بالكاميرا للحضور', 'Allow camera for attendees'],
+    save: ['حفظ', 'Save'],
     you: ['(أنت)', '(You)'],
     headers: ['مقدمو الاجتماع', 'Presenters', 'الحضور', 'Attendees', 'في هذا الاجتماع', 'In this meeting', 'المنظم', 'Organizer',
       'مدعوون', 'Invited', 'الأيدي المرفوعة', 'Raised hands', 'الآخرون المدعوون', 'Others invited']
@@ -96,6 +102,36 @@
     (await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV)) || (await click(L.joinNow));
   }
 
+  // قفل بديل من «خيارات الاجتماع» (يعمل حتى لو لم يدخل طلاب بعد)
+  function findToggle(labels) {
+    const all = [...document.querySelectorAll('[role="switch"],input[type="checkbox"],button[aria-checked],button[aria-pressed]')].filter(vis);
+    for (const w of labels.map(norm)) {
+      const t = all.find(x => (norm(x.getAttribute('aria-label')) + ' ' + norm((x.closest('label,li,[role="group"],div') || {}).innerText || '')).includes(w));
+      if (t) return t;
+    }
+    return null;
+  }
+  const isOn = t => t.getAttribute('aria-checked') === 'true' || t.checked === true || t.getAttribute('aria-pressed') === 'true';
+  async function meetingOptionsLock(lk) {
+    const already = findToggle(L.allowMic) || findToggle(L.allowCam);
+    if (!already) {
+      if (!(await click(L.moreTop))) return;
+      if (!(await click(L.meetingOptions))) { if (await click(L.settings)) await click(L.meetingOptions); }
+      await sleep(2500);
+    }
+    let changed = false;
+    for (const [k, lbl] of [['mic', L.allowMic], ['cam', L.allowCam]]) {
+      const t = findToggle(lbl); if (!t) continue;
+      if (isOn(t)) { t.click(); await sleep(500); changed = true; }
+      if (!isOn(t)) lk[k] = true;
+    }
+    if (changed) await click(L.save);
+    if (lk.mic) lk.mute = true; // من لا يملك المايك لا يحتاج كتمًا
+    await sleep(800);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await click(L.people);
+  }
+
   // 2) القفل
   async function lockStep() {
     ctx.tries = (ctx.tries || 0) + 1;
@@ -112,6 +148,7 @@
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(300);
       }
     }
+    if (!lk.mic || !lk.cam) await meetingOptionsLock(lk);
     await patch({ locked: lk });
     if (lk.mic && lk.cam) {
       await patch({ phase: 'live' });
@@ -119,10 +156,10 @@
       note(`حصة ${ctx.s.cls} جاهزة: المايكات والكاميرات معطّلة – ادخل الآن`);
       if (ctx.video) { send({ t: 'video', url: ctx.video }); note('مقطع الدرس مفتوح في تبويب جاهز: من Teams اضغط «مشاركة» واختر تبويب المقطع مع الصوت.'); }
       else note(`درس ${ctx.s.lesson || ctx.s.cls} بلا مقطع فيديو في الإعدادات – أضف الرابط.`);
-    } else if (ctx.tries >= 6) {
+    } else if (ctx.tries >= 10) {
       await patch({ phase: 'live' });
       log('تعذّر القفل الكامل');
-      note(`تعذّر قفل المايك/الكاميرا في ${ctx.s.cls} – تأكد أن الحساب «مقدّم» أو اقفل يدويًا`);
+      note(`تعذّر قفل المايك/الكاميرا في ${ctx.s.cls}. أرسل «🩺 تشخيص» من الإضافة، وأوقفها يدويًا من: المزيد ← الإعدادات ← خيارات الاجتماع.`);
     }
   }
 
@@ -228,6 +265,8 @@
     out['لوحة المشاركين'] = !!peopleRoot();
     const ppl = readPeople() || []; out['عدد المقروئين'] = ppl.length; out['المعلم ظاهر'] = ppl.some(p => !p.self && isTeacher(p.name)) || !!ctx.manualTeacher;
     out['قفل'] = JSON.stringify(ctx.s.locked); out['المرحلة'] = ctx.s.phase;
+    out['زر المزيد'] = !!findBtn(L.moreTop); out['مفتاح مايك الحضور'] = (t => t ? (isOn(t) ? 'مفعّل' : 'مقفل') : 'غير ظاهر')(findToggle(L.allowMic));
+    out['مفتاح كاميرا الحضور'] = (t => t ? (isOn(t) ? 'مفعّل' : 'مقفل') : 'غير ظاهر')(findToggle(L.allowCam));
     out['صندوق الدردشة'] = !![...document.querySelectorAll('[contenteditable="true"]')].filter(vis).length;
     out['أزرار ظاهرة'] = [...document.querySelectorAll('button[aria-label]')].filter(vis).slice(0, 25).map(b => norm(b.getAttribute('aria-label')).slice(0, 30)).join(' | ');
     return out;
