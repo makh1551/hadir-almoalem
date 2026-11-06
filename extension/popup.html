@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>حاضر المعلم</title>
+<style>
+  :root{--p:#0f766e;--p2:#14b8a6;--bg:#f6f8f8;--card:#fff;--tx:#1f2937;--mut:#6b7280;--bd:#e5e7eb;--red:#dc2626;--amb:#d97706;--grn:#16a34a}
+  *{box-sizing:border-box}
+  body{margin:0;width:420px;min-height:520px;font:13px/1.5 Tahoma,"Segoe UI",Arial;background:var(--bg);color:var(--tx)}
+  header{background:var(--p);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px}
+  header b{font-size:16px} header small{opacity:.8;margin-inline-start:auto}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--bd)}
+  nav button{flex:1;border:0;background:none;padding:9px 4px;cursor:pointer;font:inherit;color:var(--mut);border-bottom:2px solid transparent}
+  nav button.on{color:var(--p);border-color:var(--p);font-weight:bold}
+  main{padding:10px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:8px}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .btn{border:0;border-radius:8px;padding:6px 10px;background:var(--p);color:#fff;cursor:pointer;font:inherit}
+  .btn.s{background:#e6f4f2;color:var(--p)} .btn.r{background:#fee2e2;color:var(--red)}
+  input,select,textarea{font:inherit;border:1px solid var(--bd);border-radius:7px;padding:5px 7px;background:#fff;color:var(--tx)}
+  textarea{width:100%;min-height:150px}
+  label{display:block;margin:6px 0 2px;color:var(--mut)}
+  .mut{color:var(--mut)} .tag{display:inline-block;border-radius:20px;padding:1px 8px;font-size:12px;background:#eef2f2}
+  .ok{background:#dcfce7;color:var(--grn)} .warn{background:#fef3c7;color:var(--amb)} .bad{background:#fee2e2;color:var(--red)}
+  table{width:100%;border-collapse:collapse;font-size:12px} td,th{border-bottom:1px solid var(--bd);padding:4px;text-align:right}
+  .cls-grid input,.cls-grid select{width:100%}
+  .cls-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .full{grid-column:1/-1}
+  footer{text-align:center;color:var(--mut);font-size:11px;padding:8px}
+</style>
+</head>
+<body>
+<header><b>🎓 حاضر المعلم</b><small id="clock"></small></header>
+<nav>
+  <button data-v="today" class="on">اليوم</button>
+  <button data-v="classes">الحصص</button>
+  <button data-v="students">الطلاب</button>
+  <button data-v="reports">التقارير</button>
+  <button data-v="settings">الإعدادات</button>
+</nav>
+<main id="main"></main>
+<footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer>
+<script src="popup.js"></script>
+</body>
+</html>
