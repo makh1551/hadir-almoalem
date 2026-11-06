@@ -43,7 +43,7 @@ function note(message, title = 'حاضر المعلم') {
 const classToday = (c, day, dow) => c.date ? c.date === day : (c.day !== undefined && c.day !== '' && Number(c.day) === dow);
 
 async function tick() {
-  const classes = await get('classes'), st = await get('settings'), sessions = await get('sessions'), sync = await get('sync');
+  const classes = (await get('classes')).filter(c => !c.skip), st = await get('settings'), sessions = await get('sessions'), sync = await get('sync');
   const d = new Date(), dow = d.getDay(), nm = nowMin(), day = today();
   // سحب التقويم في الأوقات المحددة
   const times = String(st.syncTimes || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -123,6 +123,7 @@ async function startSync() {
 async function mergeCal(events) {
   const classes = await get('classes');
   const clsMap = await get('clsMap'); const rosterKeys = Object.keys(await get('rosters'));
+  const pick = (await get('settings')).pickMode === true;
   const dates = new Set(events.map(e => e.date));
   const now = today();
   const byId = Object.fromEntries(classes.map(c => [c.id, c]));
@@ -132,7 +133,8 @@ async function mergeCal(events) {
     const id = 'cal-' + e.date + '-' + e.start.replace(':', '') + '-' + hash(e.title);
     const old = byId[id] || {};
     fresh[id] = { id, src: 'cal', date: e.date, start: e.start, dur: e.dur, lesson: e.title,
-      cls: old.cls || guessCls(e.title, e.link || old.link, clsMap, rosterKeys), link: e.link || old.link || '', video: old.video || e.video || '' };
+      cls: old.cls || guessCls(e.title, e.link || old.link, clsMap, rosterKeys), link: e.link || old.link || '', video: old.video || e.video || '',
+      skip: old.id ? !!old.skip : pick };
   }
   // احذف حصص التقويم الملغاة في الأيام التي سُحبت، واحتفظ بالباقي
   const kept = classes.filter(c => c.src !== 'cal' || (!dates.has(c.date) && c.date >= now));
@@ -160,10 +162,11 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const sync = await get('sync'); if (sender.tab?.id !== sync.tabId) return reply(false);
       if (m.me) { const st = await get('settings'); if (!st.teacherName) { st.teacherName = m.me; await set('settings', st); } }
       const list = await mergeCal(m.events || []);
+      const waiting = list.filter(c => c.skip).length;
       const noLink = list.filter(c => !c.link).length, noVid = list.filter(c => !c.video).length;
       await set('sync', { ...sync, tabId: null, last: new Date().toISOString(), lastCount: list.length, lastErr: '' });
       try { await chrome.tabs.remove(sender.tab.id); } catch (e) {}
-      note(`سُحبت ${list.length} حصة من التقويم` + (noLink ? ` · ${noLink} بلا رابط` : '') + (noVid ? ` · ${noVid} بلا مقطع – أضف الرابط` : ''));
+      note(`سُحبت ${list.length} حصة من التقويم` + (noLink ? ` · ${noLink} بلا رابط` : '') + (noVid ? ` · ${noVid} بلا مقطع – أضف الرابط` : '') + (waiting ? ` · ${waiting} تنتظر اختيارك من «الأسبوع»` : ''));
       reply(true);
     } else if (m.t === 'testNow') {
       const d = new Date(Date.now() + 60000);

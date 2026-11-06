@@ -30,7 +30,8 @@ async function render() {
 async function vToday() {
   const classes = await get('classes'), sessions = await get('sessions'), st = await get('settings');
   const dow = new Date().getDay(), day = today();
-  const list = classes.filter(c => classToday(c, day, dow)).sort((a, b) => a.start.localeCompare(b.start));
+  const list = classes.filter(c => classToday(c, day, dow) && !c.skip).sort((a, b) => a.start.localeCompare(b.start));
+  const skippedToday = classes.filter(c => classToday(c, day, dow) && c.skip).length;
   const sync = await get('sync');
   const active = Object.entries(sessions).find(([k, s]) => s.day === day && ['join', 'lock', 'live'].includes(s.phase));
   let h = '';
@@ -84,7 +85,8 @@ async function vToday() {
     } else if (st.onboarded) h += `<div class="card hero"><div class="big">✅ لا حصص متبقية اليوم</div></div>`;
   }
   h += `<div class="card"><div class="row"><button class="btn s" id="syncNow">🔄 تحديث الحصص</button><span class="mut">${sync.tabId ? 'جارٍ السحب...' : sync.last ? 'آخر سحب: ' + new Date(sync.last).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + sync.lastCount + ' حصة' : 'لم يُسحب بعد'}</span></div>${sync.lastErr ? `<div class="tag bad">${esc(sync.lastErr)}</div>` : ''}</div>`;
-  if (!list.length) h += `<div class="card mut">لا حصص اليوم.</div>`;
+  if (!list.length) h += `<div class="card mut">لا حصص مفعّلة اليوم.</div>`;
+  if (skippedToday) h += `<div class="card mut">⏸ ${skippedToday} حصة اليوم غير مختارة — لن يديرها المساعد. اخترها من «الأسبوع».</div>`;
   h += `<details class="card"><summary><b>🧪 حصة تجريبية الآن</b></summary>
     <div class="mut">أنشئ اجتماع Teams تجريبيًا وادخله من جوالك كطالب، ثم ضع رابطه هنا. تبدأ الحصة بعد دقيقة.</div>
     <label>رابط الاجتماع التجريبي</label><input id="tLink" style="width:100%" placeholder="https://teams.microsoft.com/...">
@@ -160,8 +162,8 @@ async function vClasses() {
   h = `<div class="card mut">حصص التقويم تُسحب آليًا (${esc((await get('settings')).syncTimes)}). عدّل «الصف» و«المقطع» لكل حصة من زر تعديل.</div>` + h;
   for (const c of shown) {
     const when = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' }) : 'كل ' + DAYS[c.day];
-    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}
-      <button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
+    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
+      <button class="btn s" data-tog="${c.id}">${c.skip ? '▶️ اختر' : '⏸ ألغِ'}</button><button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
       <div class="mut">${esc(c.lesson || '')} ${c.video ? '· 🎬' : '· ⚠️ بلا مقطع'} ${c.link ? '' : '· ⚠️ بلا رابط'}</div></div>`;
   }
   $('#main').innerHTML = h;
@@ -183,6 +185,8 @@ async function vClasses() {
     }
     render();
   };
+  document.querySelectorAll('[data-tog]').forEach(b => b.onclick = async () => {
+    const cl = await get('classes'); const x = cl.find(y => y.id === b.dataset.tog); if (x) { x.skip = !x.skip; await set('classes', cl); } render(); });
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('حذف الحصة؟')) return; await set('classes', (await get('classes')).filter(x => x.id !== b.dataset.del)); render();
   });
@@ -210,7 +214,7 @@ async function suggestInto(title, cls, onPick, outSel = '#sugOut') {
 // ===== الأسبوع =====
 let weekOffset = 0;
 async function vWeek() {
-  const classes = await get('classes');
+  const classes = await get('classes'), st = await get('settings');
   const base = new Date(); base.setHours(12, 0, 0, 0);
   const lead = base.getDay() >= 5 ? 7 : 0; // الجمعة والسبت: اعرض أسبوع الدوام القادم
   base.setDate(base.getDate() - base.getDay() + lead + weekOffset * 7);
@@ -219,13 +223,17 @@ async function vWeek() {
   let missing = 0, total = 0, body = '';
   for (const d of days) {
     const list = classes.filter(c => c.date ? c.date === ymd(d) : Number(c.day) === d.getDay()).sort((a, b) => a.start.localeCompare(b.start));
-    body += `<div class="card"><b>${d.toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' })}</b>`;
+    const allOff = list.length && list.every(c => c.skip);
+    body += `<div class="card"><div class="row"><b style="flex:1">${d.toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' })}</b>
+      ${list.length ? `<button class="btn s" data-dayon="${ymd(d)}|${d.getDay()}|${allOff ? 1 : 0}">${allOff ? '▶️ اختر اليوم كله' : '⏸ ألغِ اليوم كله'}</button>` : ''}</div>`;
     if (!list.length) body += `<div class="mut">لا حصص</div>`;
     for (const c of list) {
+      const cb = `<input type="checkbox" data-on="${c.id}" ${c.skip ? '' : 'checked'} title="يديرها المساعد" style="width:18px;height:18px;margin:0">`;
+      if (c.skip) { body += `<div class="row" style="margin-top:6px;border-top:1px solid var(--bd);padding-top:6px;opacity:.55">${cb}<span style="flex:1"><b>${c.start}</b> · ${esc(c.cls || '—')} · <span class="mut">${esc(c.lesson || '')}</span></span><span class="tag">⏸ غير مختارة</span></div>`; continue; }
       total++;
       const need = [!c.link && 'رابط', !c.video && 'مقطع', !c.cls && 'الصف'].filter(Boolean);
       if (need.length) missing++;
-      body += `<div class="row" style="margin-top:6px;border-top:1px solid var(--bd);padding-top:6px"><span style="flex:1"><b>${c.start}</b> · ${esc(c.cls || '—')} · <span class="mut">${esc(c.lesson || '')}</span></span>
+      body += `<div class="row" style="margin-top:6px;border-top:1px solid var(--bd);padding-top:6px">${cb}<span style="flex:1"><b>${c.start}</b> · ${esc(c.cls || '—')} · <span class="mut">${esc(c.lesson || '')}</span></span>
         ${need.length ? need.map(n => `<span class="tag warn">بلا ${n}</span>`).join('') + `<button class="btn s" data-fix="${c.id}">جهّزها</button>` : '<span class="tag ok">جاهزة ✓</span>'}</div>
         ${!c.video ? `<div id="ws-${c.id}"></div>` : ''}`;
     }
@@ -234,7 +242,13 @@ async function vWeek() {
   $('#main').innerHTML = `<div class="card hero"><div class="row"><button class="btn s" id="wPrev">‹ السابق</button>
       <span class="big" style="flex:1;text-align:center">${weekOffset === 0 ? (lead ? 'الأسبوع القادم' : 'هذا الأسبوع') : weekOffset === 1 && !lead ? 'الأسبوع القادم' : 'أسبوع ' + days[0].toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}</span>
       <button class="btn s" id="wNext">التالي ›</button></div>
-      <div style="margin-top:6px">${total} حصة · ${missing ? `<b style="color:var(--amb)">${missing} تحتاج تجهيزًا</b>` : '<b style="color:var(--grn)">كلها جاهزة ✓</b>'}</div></div>` + body;
+      <label class="row" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="pickMode" ${st.pickMode ? 'checked' : ''} style="width:18px;height:18px"><span>الحصص الجديدة من التقويم تنتظر اختياري (لا تُدار حتى أختارها)</span></label>
+      <div style="margin-top:6px">${total} حصة مختارة · ${missing ? `<b style="color:var(--amb)">${missing} تحتاج تجهيزًا</b>` : '<b style="color:var(--grn)">كلها جاهزة ✓</b>'}</div></div>` + body;
+  const setSkip = async (pred, skip) => { const cl = await get('classes'); for (const x of cl) if (pred(x)) x.skip = skip; await set('classes', cl); render(); };
+  document.querySelectorAll('[data-on]').forEach(cb => cb.onchange = () => setSkip(x => x.id === cb.dataset.on, !cb.checked));
+  document.querySelectorAll('[data-dayon]').forEach(b => b.onclick = () => { const [dt, dw, on] = b.dataset.dayon.split('|');
+    setSkip(x => x.date ? x.date === dt : Number(x.day) === Number(dw), on !== '1'); });
+  $('#pickMode').onchange = async e => { const s = await get('settings'); s.pickMode = e.target.checked; await set('settings', s); };
   $('#wPrev').onclick = () => { weekOffset--; render(); };
   $('#wNext').onclick = () => { weekOffset++; render(); };
   document.querySelectorAll('[data-fix]').forEach(b => b.onclick = async () => {
