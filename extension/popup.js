@@ -293,7 +293,9 @@ async function vStudents() {
 function scrapeNames() {
   const clean = t => String(t || '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
   // اسم شخص: كلمتان إلى ست كلمات عربية/لاتينية، بلا نقاط أو فواصل أو نقطتين
-  const isName = t => t.length >= 6 && t.length <= 60 && /^[ء-ي٠-٩A-Za-z' ]+$/.test(t) && (n => n >= 2 && n <= 6)(t.split(' ').length);
+  const isName0 = t => t.length >= 6 && t.length <= 60 && /^[ء-ي٠-٩A-Za-z' ]+$/.test(t) && (n => n >= 2 && n <= 6)(t.split(' ').length);
+  const GRADE = /^(الصف\s+)?(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس|أول|ثاني|ثالث|رابع|خامس|سادس)(\s+(الابتدائي|المتوسط|الثانوي))?(\s+\S{1,2})?$/;
+  const isName = t => isName0(t) && !GRADE.test(t);
   const BAD = /(تقارير|تقرير|نماذج|إعداد|متابعة|المسارات|بنك|الجدول|الرئيسية|استطلاعات|الإعدادات|الواجبات|الاختبارات|الدروس|المقررات|الحضور|الغياب|الفصول|الطلاب|المعلمين|المدرسة|بيانات|قائمة|طلابي|المحتوى|الرسائل|الإشعارات|البحث|تسجيل|الخروج|الملف|الشخصي|المساعدة|الدعم|حالة|الموهبة|الانتظام|الإعاقة|اللغة|الكل|عرض|المزيد|إضافة|حذف|تعديل|المالكون|الأعضاء|الضيوف|القنوات|المنشورات|الملفات|Owners?|Members?|Guests?|Search|Settings)/i;
   const inChrome = e => e.closest('nav,header,footer,aside,[role="navigation"],[role="menu"],[role="menubar"],[role="banner"],.sidebar,.side-menu,.menu,.navbar,[class*="sidebar"],[class*="menu"],[class*="nav"]');
   const out = new Set();
