@@ -268,13 +268,17 @@ async function vStudents() {
         const sels = [...document.querySelectorAll('select')];
         const lab = el => (el.closest('div')?.parentElement?.innerText || '');
         const s = sels.find(x => /الفصل/.test(lab(x)) && x.selectedIndex > 0) || sels.find(x => x.selectedIndex > 0 && /أ|ب|ج|\d/.test(x.options[x.selectedIndex]?.text || ''));
-        return s ? s.options[s.selectedIndex].text.trim() : '';
+        if (s) return s.options[s.selectedIndex].text.trim();
+        const chip = [...document.querySelectorAll('[class*="select"] *, [role="combobox"], [class*="dropdown"] *')].map(e => (e.childElementCount ? '' : e.textContent || '').trim()).find(t => /^الصف\s+\S+\s+\S$/.test(t));
+        if (chip) return chip;
+        const card = (document.body.innerText.match(/اسم الفصل\s*:\s*([^\n]+)/) || [])[1];
+        return card ? card.trim() : '';
       } });
-      if (result && !$('#rCls').value) $('#rCls').value = result;
+      if (result && !$('#rCls').value) $('#rCls').value = result.replace(/^الصف\s+/, '');
     }
   } catch (e) {}
   $('#rSave').onclick = async () => {
-    const cls = $('#rCls').value.trim(); if (!cls) return alert('اكتب اسم الصف');
+    const cls = $('#rCls').value.trim().replace(/^الصف\s+/, ''); if (!cls) return alert('اكتب اسم الصف');
     const list = [...new Set($('#rNames').value.split('\n').map(s => s.trim()).filter(Boolean))];
     const r = await get('rosters'); r[cls] = list; await set('rosters', r);
     const a = await get('autoRosters'); delete a[cls]; await set('autoRosters', a); pulled = []; render();
@@ -287,15 +291,29 @@ async function vStudents() {
 
 // يُحقن في الصفحة المفتوحة ويجمع ما يشبه أسماء الأشخاص
 function scrapeNames() {
-  const ok = /^[\u0600-\u06FFA-Za-z\s.'-]+$/;
-  const bad = /^(الاسم|اسم الطالب|الطلاب|الطالب|المعلم|الصف|الفصل|حاضر|غائب|متأخر|الكل|بحث|إضافة|حذف|تعديل|عرض|الأعضاء|المالكون|الضيوف|أعضاء|مالك|عضو|الإعدادات|القنوات|المنشورات|الملفات|Name|Owner|Owners|Member|Members|Guest|Guests|Search|Role|Title)$/i;
+  const clean = t => String(t || '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+  // اسم شخص: كلمتان إلى ست كلمات عربية/لاتينية، بلا نقاط أو فواصل أو نقطتين
+  const isName = t => t.length >= 6 && t.length <= 60 && /^[ء-ي٠-٩A-Za-z' ]+$/.test(t) && (n => n >= 2 && n <= 6)(t.split(' ').length);
+  const BAD = /(تقارير|تقرير|نماذج|إعداد|متابعة|المسارات|بنك|الجدول|الرئيسية|استطلاعات|الإعدادات|الواجبات|الاختبارات|الدروس|المقررات|الحضور|الغياب|الفصول|الطلاب|المعلمين|المدرسة|بيانات|قائمة|طلابي|المحتوى|الرسائل|الإشعارات|البحث|تسجيل|الخروج|الملف|الشخصي|المساعدة|الدعم|حالة|الموهبة|الانتظام|الإعاقة|اللغة|الكل|عرض|المزيد|إضافة|حذف|تعديل|المالكون|الأعضاء|الضيوف|القنوات|المنشورات|الملفات|Owners?|Members?|Guests?|Search|Settings)/i;
+  const inChrome = e => e.closest('nav,header,footer,aside,[role="navigation"],[role="menu"],[role="menubar"],[role="banner"],.sidebar,.side-menu,.menu,.navbar,[class*="sidebar"],[class*="menu"],[class*="nav"]');
   const out = new Set();
-  const sel = 'td,[role="gridcell"],[role="listitem"],[role="treeitem"],[role="row"],li,.name,.student-name,[data-tid*="name"],[class*="name"]';
+  // 1) بطاقات مدرستي «طلابي»: الاسم فوق سطر «اسم الفصل :»
+  const marks = [...document.querySelectorAll('body *')].filter(e => e.children.length <= 3 && /اسم الفصل\s*:?/.test(e.textContent || '') && (e.textContent || '').length < 120);
+  for (const m of marks) {
+    let card = m;
+    for (let i = 0; i < 6 && card.parentElement; i++) { card = card.parentElement; if ((card.innerText || '').split('\n').filter(Boolean).length >= 2) break; }
+    const head = card.querySelector('h1,h2,h3,h4,h5,h6,strong,b,[class*="name"],[class*="title"]');
+    const cands = [head?.innerText, ...(card.innerText || '').split('\n')].map(clean).filter(Boolean);
+    const name = cands.find(t => isName(t) && !BAD.test(t) && !/اسم الفصل|الصف/.test(t));
+    if (name) out.add(name);
+  }
+  if (out.size >= 3) return [...out];
+  // 2) جداول وقوائم عامة (أعضاء Teams، جداول مدرستي) مع استبعاد القوائم الجانبية
+  const sel = 'td,[role="gridcell"],[role="listitem"],[role="treeitem"],[role="row"],li,.name,.student-name,[data-tid*="name"],[class*="name"],h3,h4,h5';
   for (const e of document.querySelectorAll(sel)) {
-    let t = (e.innerText || '').split('\n')[0].replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
-    if (t.length < 6 || t.length > 60 || !ok.test(t) || bad.test(t)) continue;
-    const w = t.split(' ').length; if (w < 2 || w > 6) continue;
-    out.add(t);
+    if (inChrome(e)) continue;
+    const t = clean((e.innerText || '').split('\n')[0]);
+    if (isName(t) && !BAD.test(t)) out.add(t);
   }
   return [...out];
 }
