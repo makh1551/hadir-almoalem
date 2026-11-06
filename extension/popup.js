@@ -41,7 +41,7 @@ async function vToday() {
     h += `<div class="card hero"><div class="big">📤 مشاركة هذا التبويب في الحصة</div>
       <div class="mut" style="margin:4px 0 8px">${esc((cur.title || '').slice(0, 60))}</div>
       <div class="row"><button class="btn xl" id="shareNow">📤 شارك هذا التبويب في Teams</button><button class="btn s" id="stopShare">إيقاف المشاركة</button></div>
-      <div id="shareOut" class="mut" style="margin-top:6px"></div></div>`;
+      <div id="shareOut" class="mut" style="margin-top:6px">أو اضغط <b>Ctrl+Shift+1</b> وأنت على تبويب المقطع.</div></div>`;
   }
   // معالج أول مرة
   if (!st.onboarded) {

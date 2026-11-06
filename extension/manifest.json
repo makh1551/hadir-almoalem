@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "حاضر المعلم",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "مساعد المعلم في حصة Teams: يسحب حصصك من التقويم، ويفتح كل حصة في موعدها ويقفل المايك والكاميرا، ويرصد الحضور، وينهي الحصة آليًا.",
   "permissions": [
     "activeTab",
@@ -75,5 +75,15 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "commands": {
+    "share-video": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+1",
+        "mac": "Command+Shift+1"
+      },
+      "description": "اعرض تبويب المقطع للطلاب في Teams",
+      "global": true
+    }
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "version": "1.7.1",
+  "version": "1.8.0",
   "url": "https://hadir.wasl.uk/hadir-almoalem.zip",
-  "notes": "مشاركة المقطع داخل Teams بالصوت، وتسهيل سحب أسماء الطلاب من مدرستي"
+  "notes": "المقطع يعمل تلقائيًا عند بداية الحصة، ويُعرض للطلاب في Teams بضغطة Ctrl+Shift+1"
 }

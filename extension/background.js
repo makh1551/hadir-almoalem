@@ -208,7 +208,9 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'note') {
       note(m.msg); reply(true);
     } else if (m.t === 'video') {
-      await chrome.tabs.create({ url: m.url, active: false }); reply(true);
+      const vt = await chrome.tabs.create({ url: m.url, active: !!m.active });
+      if (m.active) try { await chrome.windows.update(vt.windowId, { focused: true }); } catch (e) {}
+      reply(true);
     } else if (m.t === 'cmd') {
       const tabs = await get('tabs'); const tabId = Object.keys(tabs).find(id => tabs[id] === m.key);
       if (!tabId) return reply({ ok: false, err: 'لا توجد حصة مفتوحة' });
@@ -328,3 +330,19 @@ async function cloudSync() {
     questions: (s.questions || []).map(q => ({ t: q.text, a: q.answers.slice(0, 5).map(a => a.name) })), summary: s.summary || '' }));
   try { await fetch(CLOUD + '/api/sync/' + st.cloudToken, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ teacher: st.teacherName, at: new Date().toISOString(), sessions: ss }) }); } catch (e) {}
 }
+
+// ===== اختصار Ctrl+Shift+1: اعرض التبويب الحالي (المقطع) في Teams =====
+chrome.commands.onCommand.addListener(async (cmd, tab) => {
+  if (cmd !== 'share-video') return;
+  const tabs = await get('tabs'), ss = await get('sessions');
+  const e = Object.entries(tabs).find(([, k]) => ss[k] && ['join', 'lock', 'live'].includes(ss[k].phase));
+  if (!e) return note('لا توجد حصة جارية الآن');
+  let target = tab;
+  if (!target) [target] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (!target || target.id === Number(e[0])) return note('افتح تبويب المقطع أولًا، ثم اضغط Ctrl+Shift+1');
+  try {
+    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: target.id, consumerTabId: Number(e[0]) });
+    const r = await chrome.tabs.sendMessage(Number(e[0]), { t: 'cmd', key: e[1], c: 'shareTab', streamId });
+    note(r?.ok ? '✅ المقطع يُعرض الآن للطلاب في Teams' : '❌ ' + (r?.err || 'تعذّرت المشاركة'));
+  } catch (err) { note('❌ تعذّرت المشاركة: ' + err.message); }
+});

@@ -157,8 +157,7 @@
       await patch({ phase: 'live' });
       log('تم القفل: كتم الجميع وتعطيل المايك والكاميرا');
       note(`حصة ${ctx.s.cls} جاهزة: المايكات والكاميرات معطّلة – ادخل الآن`);
-      if (ctx.video) { send({ t: 'video', url: ctx.video }); note('مقطع الدرس مفتوح في تبويب جاهز: من Teams اضغط «مشاركة» واختر تبويب المقطع مع الصوت.'); }
-      else note(`درس ${ctx.s.lesson || ctx.s.cls} بلا مقطع فيديو في الإعدادات – أضف الرابط.`);
+      if (!ctx.video) note(`درس ${ctx.s.lesson || ctx.s.cls} بلا مقطع – أضف الرابط من «الحصص».`);
     } else if (ctx.tries >= 10) {
       await patch({ phase: 'live' });
       log('تعذّر القفل الكامل');
@@ -189,6 +188,12 @@
     for (const mk of [5, 20, ctx.s.dur - 2]) if (t >= mk && !ctx.s.snaps[mk]) ctx.s.snaps[mk] = students.map(p => p.name);
     await patch({ snaps: ctx.s.snaps, hands: ctx.s.hands, seen });
     setBadge(`يعمل · الطلاب الآن ${students.length}`);
+    // بداية الحصة: افتح المقطع وشغّله، واطلب ضغطة العرض
+    if (t >= 0 && ctx.video && !ctx.s.videoOpened) {
+      await patch({ videoOpened: hhmm() });
+      send({ t: 'video', url: ctx.video, active: true });
+      note('🎬 المقطع يعمل الآن — اضغط Ctrl+Shift+1 لعرضه للطلاب في Teams');
+    }
 
     const g = Number(ctx.st.guardMin || 10);
     if (!ctx.s.teacherSeen && t > g) return stop(`لم يدخل المعلم خلال ${g} دقائق – أوقفت المساعد وغادرت`);
