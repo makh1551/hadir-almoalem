@@ -4,6 +4,7 @@ const DEF = {
   clsMap: {},    // معرّف فريق/قناة Teams ← الصف (يتعلّم من تعديلاتك)
   update: {},    // {version, url, notes, checked}
   daySummary: {}, // {date: true} أُرسل تنبيه ملخص اليوم
+  autoRosters: {}, // {الصف: true} قائمة تعلّمتها الإضافة من الحصص
   classes: [],   // أسبوعية {id, day, start, dur, cls, lesson, link, video} أو من التقويم {id, date, ..., src:'cal'}
   rosters: {},
   sessions: {},
@@ -62,6 +63,14 @@ async function tick() {
     chrome.notifications.create('summary-' + day, { type: 'basic', iconUrl: 'icons/128.png', title: 'حاضر المعلم',
       message: `انتهت حصص اليوم (${todays.length}). اضغط لإرسال الملخص على واتساب.`, buttons: [{ title: '📲 إرسال الملخص' }], priority: 2 });
   }
+  // عدّاد الأيقونة
+  try {
+    const live = Object.values(sessions).find(x => x.day === day && ['join', 'lock', 'live'].includes(x.phase));
+    const next = classes.filter(c => classToday(c, day, dow) && c.link && mins(c.start) >= nm).sort((a, b) => mins(a.start) - mins(b.start))[0];
+    if (live) { chrome.action.setBadgeText({ text: '●' }); chrome.action.setBadgeBackgroundColor({ color: '#16a34a' }); chrome.action.setTitle({ title: 'حاضر المعلم — حصة ' + live.cls + ' تعمل الآن' }); }
+    else if (next && mins(next.start) - nm <= 90) { const m = mins(next.start) - nm; chrome.action.setBadgeText({ text: m + 'د' }); chrome.action.setBadgeBackgroundColor({ color: m <= 5 ? '#d97706' : '#0f766e' }); chrome.action.setTitle({ title: `حاضر المعلم — ${next.cls || next.lesson} بعد ${m} دقيقة` }); }
+    else { chrome.action.setBadgeText({ text: '' }); chrome.action.setTitle({ title: 'حاضر المعلم' }); }
+  } catch (e) {}
   // فتح كل حصة في موعدها
   for (const c of classes) {
     if (!classToday(c, day, dow) || !c.link) continue;
@@ -131,6 +140,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       reply({ teacherName: st.teacherName, weeks: Number(st.weeks || 2), known });
     } else if (m.t === 'calResult') {
       const sync = await get('sync'); if (sender.tab?.id !== sync.tabId) return reply(false);
+      if (m.me) { const st = await get('settings'); if (!st.teacherName) { st.teacherName = m.me; await set('settings', st); } }
       const list = await mergeCal(m.events || []);
       const noLink = list.filter(c => !c.link).length, noVid = list.filter(c => !c.video).length;
       await set('sync', { ...sync, tabId: null, last: new Date().toISOString(), lastCount: list.length, lastErr: '' });
@@ -155,7 +165,17 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'syncNow') {
       reply(await startSync());
     } else if (m.t === 'update') {
-      const ss = await get('sessions'); ss[m.key] = Object.assign(ss[m.key] || {}, m.patch); await set('sessions', ss); reply(true);
+      const ss = await get('sessions'); ss[m.key] = Object.assign(ss[m.key] || {}, m.patch); await set('sessions', ss);
+      const s = ss[m.key];
+      if (m.patch.report && !s.test && s.cls) { // تعلّم أسماء الطلاب من الحصة
+        const rosters = await get('rosters'), auto = await get('autoRosters');
+        const seenNames = m.patch.report.filter(r => !r.status.startsWith('غائب')).map(r => r.teams || r.name).filter(Boolean);
+        if (!rosters[s.cls] || auto[s.cls]) {
+          rosters[s.cls] = [...new Set([...(rosters[s.cls] || []), ...seenNames])]; auto[s.cls] = true;
+          await set('rosters', rosters); await set('autoRosters', auto);
+        }
+      }
+      reply(true);
     } else if (m.t === 'note') {
       note(m.msg); reply(true);
     } else if (m.t === 'video') {

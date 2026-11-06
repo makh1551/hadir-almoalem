@@ -69,13 +69,23 @@
     if (!cfg) return;
     for (let i = 0; i < 20 && !document.querySelector('[role="button"][aria-label]'); i++) await sleep(1000);
     await sleep(3000);
+    if (!cfg.teacherName) { // الاسم غير معروف بعد: اقرأه من الحساب حتى لا تُسحب اجتماعات الآخرين
+      const acc = document.querySelector('#mectrl_currentAccount_primary, [data-tid="me-control-display-name"]');
+      const b = [...document.querySelectorAll('button[aria-label]')].map(x => x.getAttribute('aria-label')).find(l => /Account manager for|مدير الحساب ل/.test(l || ''));
+      cfg.teacherName = acc ? norm(acc.textContent) : b ? norm(b.replace(/.*(Account manager for|مدير الحساب لـ?)\s*/, '')) : '';
+    }
     const out = {};
     await scrapeVisible(cfg, out);
     for (let w = 1; w < (cfg.weeks || 2); w++) {
       const next = findBtn(['الانتقال إلى الأسبوع التالي', 'Go to next week', 'الأسبوع التالي', 'Next week', 'الانتقال إلى الفترة الزمنية التالية', 'Go to next']);
       if (!next) break; next.click(); await sleep(4000); await scrapeVisible(cfg, out);
     }
-    chrome.runtime.sendMessage({ t: 'calResult', events: Object.values(out) });
+    let me = '';
+    const acc = document.querySelector('#mectrl_currentAccount_primary, #O365_MainLink_Me [class*="Name"], [data-tid="me-control-display-name"]');
+    if (acc) me = norm(acc.textContent);
+    if (!me) { const b = [...document.querySelectorAll('button[aria-label]')].map(x => x.getAttribute('aria-label')).find(l => /Account manager for|مدير الحساب ل/.test(l || ''));
+      if (b) me = norm(b.replace(/.*(Account manager for|مدير الحساب لـ?)\s*/, '')); }
+    chrome.runtime.sendMessage({ t: 'calResult', events: Object.values(out), me });
   }
   run();
 })();

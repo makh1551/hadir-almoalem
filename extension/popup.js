@@ -1,6 +1,6 @@
 // حاضر المعلم — النافذة المنبثقة
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const DEF = { settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {} };
+const DEF = { settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {}, autoRosters: {} };
 const classToday = (c, day, dow) => c.date ? c.date === day : (c.day !== undefined && c.day !== '' && Number(c.day) === dow);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -34,24 +34,44 @@ async function vToday() {
   const sync = await get('sync');
   const active = Object.entries(sessions).find(([k, s]) => s.day === day && ['join', 'lock', 'live'].includes(s.phase));
   let h = '';
-  if (!st.teacherName) h += `<div class="card bad">اكتب اسمك كما يظهر في Teams من «الإعدادات» أولًا.</div>`;
+  // معالج أول مرة
+  if (!st.onboarded) {
+    const found = classes.filter(c => c.src === 'cal').length;
+    h += `<div class="card hero"><div class="big">👋 أهلًا بك في حاضر المعلم</div>
+      <div class="mut" style="margin:6px 0 10px">خطوة واحدة: سجّل الدخول في Outlook بحسابك في هذا المتصفح، ثم اضغط الزر. سأتعرف على اسمك وأسحب حصصك تلقائيًا.</div>
+      <button class="btn xl" id="wzSync">${sync.tabId ? '⏳ جارٍ سحب حصصك…' : '🔄 اسحب حصصي وابدأ'}</button>
+      ${found || st.teacherName ? `<div style="margin-top:10px">✅ ${st.teacherName ? 'عرفتك: <b>' + esc(st.teacherName) + '</b> · ' : ''}وجدت ${found} حصة.</div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="wzDone">تم، ابدأ</button><span class="mut">الاسم غير صحيح؟ عدّله من الإعدادات.</span></div>` : ''}</div>`;
+  }
+  // البطاقة الرئيسية: الحصة الجارية أو القادمة
   if (active) {
     const [key, s] = active; const ph = PH[s.phase];
-    h += `<div class="card"><div class="row"><b>الحصة الجارية: ${esc(s.cls)}</b><span class="tag ${ph[1]}">${ph[0]}</span></div>
-      <div class="mut">${esc(s.lesson)} · ${s.start} · المعلم: ${s.teacherSeen ? 'دخل ' + s.teacherSeen : 'لم يدخل بعد'}</div>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" data-c="teacherIn">أنا داخل</button>
-        <button class="btn s" data-c="video">شغّل المقطع</button>
-        <button class="btn s" data-c="muteAll">كتم الجميع</button>
-        <button class="btn s" data-c="relock">إعادة القفل</button>
-        <button class="btn s" data-c="status">الحضور الآن</button>
-        <button class="btn r" data-c="end">إنهاء</button>
+    h += `<div class="card hero"><div class="row"><span class="big">${esc(s.cls)}</span><span class="tag ${ph[1]}">${ph[0]}</span></div>
+      <div class="mut">${esc(s.lesson)} · ${s.start} · ${s.teacherSeen ? '✅ دخلتَ ' + s.teacherSeen : '⏳ بانتظار دخولك'}</div>
+      <div class="row" style="margin-top:10px">
+        ${s.teacherSeen ? '' : '<button class="btn xl" data-c="teacherIn">✋ أنا داخل</button>'}
+        <button class="btn s xl" data-c="video">🎬 المقطع</button>
+        <button class="btn s xl" data-c="status">👥 الحضور</button>
       </div>
-      <div class="row" style="margin-top:6px"><input id="allowName" placeholder="اسم الطالب"><button class="btn s" data-c="allow">اسمح له بالحديث</button></div>
+      <details style="margin-top:8px"><summary class="mut">المزيد</summary>
+        <div class="row" style="margin-top:6px"><button class="btn s" data-c="muteAll">كتم الجميع</button><button class="btn s" data-c="relock">إعادة القفل</button><button class="btn r" data-c="end">إنهاء الحصة</button></div>
+        <div class="row" style="margin-top:6px"><input id="allowName" placeholder="اسم الطالب"><button class="btn s" data-c="allow">اسمح له بالحديث</button></div>
+      </details>
       <div id="cmdOut" class="mut" style="margin-top:6px"></div></div>`;
     setTimeout(() => document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => cmd(key, b.dataset.c)), 0);
+  } else {
+    const nm = new Date().getHours() * 60 + new Date().getMinutes();
+    const mn = t => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
+    const next = list.find(c => c.link && mn(c.start) >= nm);
+    if (next) {
+      const m = mn(next.start) - nm;
+      h += `<div class="card hero"><div class="mut">الحصة القادمة</div><div class="big">${esc(next.cls || next.lesson)} · ${next.start}</div>
+        <div class="mut">${esc(next.lesson)} — ${m <= 0 ? 'الآن' : m < 60 ? 'بعد ' + m + ' دقيقة' : 'بعد ' + Math.floor(m / 60) + ' س ' + (m % 60) + ' د'}</div>
+        <div class="mut" style="margin-top:6px">ستُفتح تلقائيًا وتُجهَّز قبل موعدها — لا تحتاج شيئًا.</div>
+        ${next.video ? '' : '<div class="tag warn" style="margin-top:6px">بلا مقطع — أضف رابطه من «الحصص»</div>'}</div>`;
+    } else if (st.onboarded) h += `<div class="card hero"><div class="big">✅ لا حصص متبقية اليوم</div></div>`;
   }
-  h += `<div class="card"><div class="row"><button class="btn" id="syncNow">🔄 اسحب حصصي من التقويم</button><span class="mut">${sync.tabId ? 'جارٍ السحب...' : sync.last ? 'آخر سحب: ' + new Date(sync.last).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + sync.lastCount + ' حصة' : 'لم يُسحب بعد'}</span></div>${sync.lastErr ? `<div class="tag bad">${esc(sync.lastErr)}</div>` : ''}</div>`;
+  h += `<div class="card"><div class="row"><button class="btn s" id="syncNow">🔄 تحديث الحصص</button><span class="mut">${sync.tabId ? 'جارٍ السحب...' : sync.last ? 'آخر سحب: ' + new Date(sync.last).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + sync.lastCount + ' حصة' : 'لم يُسحب بعد'}</span></div>${sync.lastErr ? `<div class="tag bad">${esc(sync.lastErr)}</div>` : ''}</div>`;
   if (!list.length) h += `<div class="card mut">لا حصص اليوم.</div>`;
   h += `<details class="card"><summary><b>🧪 حصة تجريبية الآن</b></summary>
     <div class="mut">أنشئ اجتماع Teams تجريبيًا وادخله من جوالك كطالب، ثم ضع رابطه هنا. تبدأ الحصة بعد دقيقة.</div>
@@ -73,6 +93,8 @@ async function vToday() {
     const r = await chrome.runtime.sendMessage({ t: 'testNow', link: $('#tLink').value.trim(), video: $('#tVideo').value.trim(), dur: Number($('#tDur').value || 10) });
     if (!r?.ok) alert(r?.err || 'تعذّر'); else setTimeout(render, 800);
   };
+  const wz = $('#wzSync'); if (wz) wz.onclick = async () => { await chrome.runtime.sendMessage({ t: 'syncNow' }); wz.textContent = '⏳ جارٍ سحب حصصك…'; const iv = setInterval(async () => { if (!(await get('sync')).tabId) { clearInterval(iv); render(); } }, 3000); };
+  const wd = $('#wzDone'); if (wd) wd.onclick = async () => { const s2 = await get('settings'); s2.onboarded = true; await set('settings', s2); render(); };
   const sb = $('#syncNow'); if (sb) sb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'syncNow' }); if (!r?.ok) alert(r?.err || 'تعذّر'); setTimeout(render, 500); };
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = async () => {
     const r = await chrome.runtime.sendMessage({ t: 'startNow', id: b.dataset.open }); if (!r?.ok) alert(r?.err || 'تعذّر'); render();
@@ -140,14 +162,16 @@ async function vClasses() {
 async function vStudents() {
   const rosters = await get('rosters'), classes = await get('classes');
   const names = [...new Set([...classes.map(c => c.cls), ...Object.keys(rosters)])].filter(Boolean);
-  let h = `<div class="card"><b>سحب أسماء الطلاب (مرة واحدة لكل صف)</b>
+  const auto = await get('autoRosters');
+  let h = `<div class="card ok">✨ لا تحتاج شيئًا هنا: تتعلّم الإضافة أسماء طلاب كل صف من الحصص نفسها. السحب أدناه اختياري، ليظهر الغائبون بالاسم من أول حصة.</div>
+  <details class="card"><summary><b>سحب أسماء الطلاب يدويًا (اختياري)</b></summary>
     <div class="mut">افتح صفحة الفصل التي فيها أسماء الطلاب (أعضاء فريق الفصل في Teams، أو قائمة الفصل في مدرستي)، ثم اضغط «اسحب».</div>
     <label>الصف</label><input id="rCls" list="clsList" placeholder="السادس أ"><datalist id="clsList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><span id="pullMsg" class="mut"></span></div>
     <label>الأسماء (اسم في كل سطر — راجعها واحذف غير الطلاب)</label><textarea id="rNames">${esc(pulled.join('\n'))}</textarea>
-    <div class="row"><button class="btn" id="rSave">حفظ قائمة الصف</button></div></div>`;
+    <div class="row"><button class="btn" id="rSave">حفظ قائمة الصف</button></div></details>`;
   for (const [k, v] of Object.entries(rosters)) {
-    h += `<div class="card"><div class="row"><b>${esc(k)}</b><span class="tag">${v.length} طالب</span>
+    h += `<div class="card"><div class="row"><b>${esc(k)}</b><span class="tag">${v.length} طالب</span>${auto[k] ? '<span class="tag ok">تعلّمتها الإضافة</span>' : ''}
       <button class="btn s" data-ed="${esc(k)}" style="margin-inline-start:auto">عرض/تعديل</button><button class="btn r" data-rd="${esc(k)}">حذف</button></div></div>`;
   }
   $('#main').innerHTML = h;
@@ -155,7 +179,8 @@ async function vStudents() {
   $('#rSave').onclick = async () => {
     const cls = $('#rCls').value.trim(); if (!cls) return alert('اكتب اسم الصف');
     const list = [...new Set($('#rNames').value.split('\n').map(s => s.trim()).filter(Boolean))];
-    const r = await get('rosters'); r[cls] = list; await set('rosters', r); pulled = []; render();
+    const r = await get('rosters'); r[cls] = list; await set('rosters', r);
+    const a = await get('autoRosters'); delete a[cls]; await set('autoRosters', a); pulled = []; render();
   };
   document.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { $('#rCls').value = b.dataset.ed; $('#rNames').value = rosters[b.dataset.ed].join('\n'); });
   document.querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
@@ -239,6 +264,8 @@ async function vSettings() {
   const st = await get('settings');
   $('#main').innerHTML = `<div class="card">
     <label>اسمك كما يظهر في Teams</label><input id="sName" value="${esc(st.teacherName)}" style="width:100%">
+    <label>جوالك لملخص اليوم على واتساب</label><input id="sWa" value="${esc(st.waPhone || '')}" placeholder="05xxxxxxxx" style="width:100%">
+    <details style="margin-top:8px"><summary class="mut">⚙️ إعدادات متقدمة</summary>
     <div class="cls-grid">
       <div><label>فتح الحصة قبل (د)</label><input id="sPrep" type="number" value="${st.prepMin ?? 1}"></div>
       <div><label>الضمانة (د)</label><input id="sGuard" type="number" value="${st.guardMin}"></div>
@@ -250,8 +277,8 @@ async function vSettings() {
         <option value="end" ${(st.endMode || 'end') === 'end' ? 'selected' : ''}>إنهاء الاجتماع للجميع</option>
         <option value="leave" ${st.endMode === 'leave' ? 'selected' : ''}>مغادرة المساعد فقط</option></select></div>
     </div>
-    <label>جوالك لملخص اليوم على واتساب</label><input id="sWa" value="${esc(st.waPhone || '')}" placeholder="05xxxxxxxx" style="width:100%">
     <div class="mut" style="margin-top:6px">الضمانة: إذا لم تدخل خلال هذه المدة، أو غبت أكثر منها، يوقف المساعد ويغادر.</div>
+    </details>
     <div class="row" style="margin-top:8px"><button class="btn" id="sSave">حفظ</button><span id="sMsg" class="mut"></span></div></div>
     <div class="card"><b>التحديث</b> <span class="mut">الإصدار الحالي ${chrome.runtime.getManifest().version}</span>
       <div class="row" style="margin-top:6px"><button class="btn s" id="upChk">فحص التحديث الآن</button><span id="upMsg" class="mut"></span></div></div>
@@ -259,7 +286,7 @@ async function vSettings() {
       <button class="btn s" id="bExp">تصدير</button><label class="btn s" style="margin:0">استيراد<input id="bImp" type="file" accept=".json" hidden></label></div></div>
     <div class="card mut">يجب أن يكون الحساب المسجّل في Teams بهذا المتصفح «مقدّمًا» في الاجتماع حتى يستطيع القفل. لمشاركة المقطع اضغط «مشاركة» في Teams واختر تبويب المقطع (يطلب Chrome ضغطة منك لأسباب أمنية).</div>`;
   $('#sSave').onclick = async () => {
-    await set('settings', { teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim() });
+    await set('settings', { ...(await get('settings')), teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim() });
     $('#sMsg').textContent = '✓ حُفظ';
   };
   $('#upChk').onclick = async () => { $('#upMsg').textContent = '...'; const r = await chrome.runtime.sendMessage({ t: 'checkUpdate' });
