@@ -155,7 +155,8 @@
     if (ctx.s.teacherSeen && ctx.lastTeacher && (Date.now() - ctx.lastTeacher) / 60000 > g) return stop(`غاب المعلم أكثر من ${g} دقائق – أوقفت المساعد وغادرت`);
     const warn = Number(ctx.st.endWarnMin ?? 2);
     if (warn > 0 && t >= ctx.s.dur - warn && !ctx.s.endWarned) {
-      await patch({ endWarned: true });
+      await patch({ endWarned: true, summary: lessonSummary() });
+      if (ctx.st.postSummary !== false) { if (await postChat(ctx.s.summary)) log('نُشر ملخص الدرس في الدردشة'); }
       note(`⏰ تنتهي حصة ${ctx.s.cls} بعد ${warn} دقيقة – سيُنهى الاجتماع آليًا`);
       log('تنبيه نهاية الحصة');
     }
@@ -219,6 +220,22 @@
     ctx.lastChat = Date.now() - 45000; // اقرأ الإجابات قريبًا
     return { ok: true, text };
   }
+  // تشخيص: أي عناصر Teams وُجدت
+  async function diag() {
+    const out = { وقت: hhmm(), الرابط: location.host + location.pathname.slice(0, 40), داخل_الاجتماع: inMeeting() };
+    const keys = { people: 'زر أشخاص', muteAll: 'كتم صوت الجميع', more: 'خيارات أخرى', chat: 'زر الدردشة', leave: 'زر مغادرة', leaveOpts: 'خيارات المغادرة', joinNow: 'الانضمام الآن', noAV: 'بدون صوت أو فيديو' };
+    for (const [k, label] of Object.entries(keys)) out[label] = !!findBtn(L[k]);
+    out['لوحة المشاركين'] = !!peopleRoot();
+    const ppl = readPeople() || []; out['عدد المقروئين'] = ppl.length; out['المعلم ظاهر'] = ppl.some(p => !p.self && isTeacher(p.name)) || !!ctx.manualTeacher;
+    out['قفل'] = JSON.stringify(ctx.s.locked); out['المرحلة'] = ctx.s.phase;
+    out['صندوق الدردشة'] = !![...document.querySelectorAll('[contenteditable="true"]')].filter(vis).length;
+    out['أزرار ظاهرة'] = [...document.querySelectorAll('button[aria-label]')].filter(vis).slice(0, 25).map(b => norm(b.getAttribute('aria-label')).slice(0, 30)).join(' | ');
+    return out;
+  }
+  function lessonSummary() {
+    const qs = (ctx.s.questions || []).map(q => '• ' + q.text).join('\n');
+    return `📝 ملخص درس «${(ctx.s.lesson || ctx.s.cls).trim()}»` + (ctx.video ? `\n🎬 مقطع الدرس: ${ctx.video}` : '') + (qs ? `\n❓ أسئلة اليوم:\n${qs}` : '') + '\nراجعوا الدرس، ومن فاته شيء يسأل في الحصة القادمة.';
+  }
   const sim = (a, b) => { a = norm(a); b = norm(b); if (a === b) return true; const A = a.split(' '), B = b.split(' ');
     return (A[0] === B[0] && A[1] && B[1] && A[1] === B[1]) || a.includes(b) || b.includes(a); };
   function compute() {
@@ -246,7 +263,7 @@
   }
   async function finish() {
     const rows = compute(); const c = s => rows.filter(r => r.status.startsWith(s)).length;
-    await patch({ phase: 'done', report: rows, endedAt: hhmm() });
+    await patch({ phase: 'done', report: rows, endedAt: hhmm(), summary: ctx.s.summary || lessonSummary() });
     const how = await endMeeting();
     log(how === 'ended' ? 'انتهت الحصة وأُغلق الاجتماع للجميع' : 'انتهت الحصة (غادرت فقط – لم يظهر خيار الإنهاء)');
     note(`انتهت حصة ${ctx.s.cls}${how === 'ended' ? ' وأُغلق الاجتماع' : ' (أغلق الاجتماع يدويًا)'}: حاضر ${c('حاضر')} · متأخر ${c('متأخر')} · خرج مبكرًا ${c('خرج')} · غائب ${c('غائب')}`);
@@ -278,6 +295,8 @@
       else if (m.c === 'video') { if (ctx.video) send({ t: 'video', url: ctx.video }); reply({ ok: !!ctx.video, err: ctx.video ? '' : 'لا يوجد رابط مقطع' }); }
       else if (m.c === 'end') { await finish(); reply({ ok: true }); }
       else if (m.c === 'ask') reply(await ask(m.text || null));
+      else if (m.c === 'diag') reply({ ok: true, diag: await diag() });
+      else if (m.c === 'summary') { const t = lessonSummary(); await patch({ summary: t }); reply({ ok: await postChat(t), text: t }); }
       else reply({ ok: false });
     })();
     return true;

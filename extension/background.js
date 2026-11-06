@@ -1,6 +1,6 @@
 // حاضر المعلم — الخلفية: سحب الحصص من التقويم، وفتح كل حصة في موعدها، والتنبيهات
 const DEF = {
-  settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' },
+  settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '', postSummary: true, cloud: false, cloudToken: '' },
   clsMap: {},    // معرّف فريق/قناة Teams ← الصف (يتعلّم من تعديلاتك)
   update: {},    // {version, url, notes, checked}
   daySummary: {}, // {date: true} أُرسل تنبيه ملخص اليوم
@@ -170,6 +170,12 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       await set('classes', cl); reply(n);
     } else if (m.t === 'suggestVideo') {
       reply(await suggestVideo(m.title || '', m.cls || ''));
+    } else if (m.t === 'cloudLink') {
+      const st = await get('settings');
+      if (!st.cloudToken) { const a = new Uint8Array(18); crypto.getRandomValues(a); st.cloudToken = [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 32); await set('settings', st); }
+      if (m.enable !== undefined) { st.cloud = !!m.enable; await set('settings', st); }
+      if (st.cloud) await cloudSync();
+      reply({ ok: true, cloud: st.cloud, url: CLOUD + '/m/' + st.cloudToken });
     } else if (m.t === 'checkUpdate') {
       reply(await checkUpdate(true));
     } else if (m.t === 'syncNow') {
@@ -177,6 +183,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'update') {
       const ss = await get('sessions'); ss[m.key] = Object.assign(ss[m.key] || {}, m.patch); await set('sessions', ss);
       const s = ss[m.key];
+      if (m.patch.report && !s.test) cloudSync();
       if (m.patch.report && !s.test && s.cls) { // تعلّم أسماء الطلاب من الحصة
         const rosters = await get('rosters'), auto = await get('autoRosters');
         const seenNames = m.patch.report.filter(r => !r.status.startsWith('غائب')).map(r => r.teams || r.name).filter(Boolean);
@@ -296,4 +303,16 @@ async function suggestVideo(title, cls) {
     const list = (ien.length ? ien : out).slice(0, 3).map(v => ({ ...v, url: 'https://www.youtube.com/watch?v=' + v.id }));
     return { ok: true, list, searchUrl, q };
   } catch (e) { return { ok: false, list: [], searchUrl, q }; }
+}
+
+// ===== التقارير على الجوال (اختياري — يفعّله المعلم من الإعدادات) =====
+const CLOUD = 'https://hadir.wasl.uk';
+async function cloudSync() {
+  const st = await get('settings'); if (!st.cloud || !st.cloudToken) return;
+  const since = ymd(new Date(Date.now() - 21 * 86400000));
+  const ss = Object.values(await get('sessions')).filter(s => s.report && !s.test && s.day >= since).map(s => ({
+    day: s.day, start: s.start, cls: s.cls, lesson: s.lesson, phase: s.phase, teacherSeen: s.teacherSeen || '',
+    report: s.report.map(r => ({ n: r.name, s: r.status })), hands: (s.hands || []).length,
+    questions: (s.questions || []).map(q => ({ t: q.text, a: q.answers.slice(0, 5).map(a => a.name) })), summary: s.summary || '' }));
+  try { await fetch(CLOUD + '/api/sync/' + st.cloudToken, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ teacher: st.teacherName, at: new Date().toISOString(), sessions: ss }) }); } catch (e) {}
 }

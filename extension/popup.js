@@ -56,6 +56,7 @@ async function vToday() {
       </div>
       <details style="margin-top:8px"><summary class="mut">المزيد</summary>
         <div class="row" style="margin-top:6px"><button class="btn s" data-c="muteAll">كتم الجميع</button><button class="btn s" data-c="relock">إعادة القفل</button><button class="btn r" data-c="end">إنهاء الحصة</button></div>
+        <div class="row" style="margin-top:6px"><button class="btn s" data-c="summary">📝 انشر ملخص الدرس</button><button class="btn s" data-c="diag">🩺 تشخيص</button></div>
         <div class="row" style="margin-top:6px"><input id="allowName" placeholder="اسم الطالب"><button class="btn s" data-c="allow">اسمح له بالحديث</button></div>
         <div class="row" style="margin-top:6px"><input id="askText" placeholder="سؤال من عندك (اختياري)" style="flex:1"><button class="btn s" data-c="ask">انشره</button></div>
       </details>
@@ -107,6 +108,13 @@ async function cmd(key, c) {
   const r = await chrome.runtime.sendMessage({ t: 'cmd', key, c, name: $('#allowName')?.value || '', text: $('#askText')?.value.trim() || '' });
   if (!r?.ok) { out.textContent = r?.err || 'تعذّر التنفيذ'; return; }
   if (c === 'status') out.innerHTML = `الطلاب الآن (${r.people.length}): ${esc(r.people.join('، '))}<br>✋ ${esc(r.hands.join('، ') || 'لا أحد')}`;
+  else if (c === 'diag') {
+    const txt = '🩺 تشخيص حاضر المعلم ' + chrome.runtime.getManifest().version + '\n' + Object.entries(r.diag).map(([k, v]) => `${k}: ${v === true ? '✅' : v === false ? '❌' : v}`).join('\n');
+    out.innerHTML = `<pre style="white-space:pre-wrap;font:inherit;font-size:12px;background:#f6f8f8;padding:8px;border-radius:8px">${esc(txt)}</pre><button class="btn" id="diagCp">نسخ التقرير لإرساله</button>`;
+    $('#diagCp').onclick = async () => { await navigator.clipboard.writeText(txt); $('#diagCp').textContent = '✓ نُسخ — الصقه في المحادثة'; };
+    return;
+  }
+  else if (c === 'summary') out.textContent = r.ok ? '✓ نُشر ملخص الدرس في الدردشة' : 'تعذّر النشر — انسخه من التقارير';
   else if (c === 'ask') { out.textContent = '✓ نُشر: ' + r.text + ' — سأنبّهك بأول من يجيب'; if ($('#askText')) $('#askText').value = ''; }
   else out.textContent = '✓ تم';
   if (c === 'end') setTimeout(render, 1500);
@@ -308,9 +316,11 @@ async function vReports() {
     document.getElementById(id).innerHTML = `<table><tr><th>الطالب</th><th>الحالة</th><th>دخل</th><th>آخر ظهور</th></tr>${
       s.report.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.status)}</td><td>${r.first}</td><td>${r.last}</td></tr>`).join('')}</table>
       ${s.hands.length ? `<p><b>✋ رفع اليد:</b> ${esc(s.hands.map(x => x.n + ' ' + x.at).join('، '))}</p>` : ''}
+      ${s.summary ? `<p><b>📝 ملخص الدرس:</b><br>${esc(s.summary).replace(/\n/g, '<br>')}<br><button class="btn s" data-sum>نسخ الملخص (لمدرستي)</button></p>` : ''}
       ${(s.questions || []).length ? `<p><b>❓ الأسئلة:</b><br>${s.questions.map(q => esc(q.at + ' — ' + q.text) + (q.answers.length ? '<br>&nbsp;&nbsp;🏅 ' + esc(q.answers.slice(0, 3).map((a, i) => (i + 1) + '. ' + a.name).join('  ')) : '')).join('<br>')}</p>` : ''}
       ${s.chat.length ? `<p><b>💬 الدردشة:</b><br>${s.chat.map(x => esc(x.at + ' — ' + (x.who ? x.who + ': ' : '') + x.txt)).join('<br>')}</p>` : ''}
       <p class="mut">${s.events.map(e => esc(e.at + ' ' + e.ev)).join(' · ')}</p>`;
+    const sb = document.getElementById(id).querySelector('[data-sum]'); if (sb) sb.onclick = async () => { await navigator.clipboard.writeText(s.summary); sb.textContent = '✓ نُسخ'; };
   });
 }
 function csv(s) {
@@ -326,6 +336,7 @@ async function vSettings() {
   $('#main').innerHTML = `<div class="card">
     <label>اسمك كما يظهر في Teams</label><input id="sName" value="${esc(st.teacherName)}" style="width:100%">
     <label>جوالك لملخص اليوم على واتساب</label><input id="sWa" value="${esc(st.waPhone || '')}" placeholder="05xxxxxxxx" style="width:100%">
+    <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="sSum" ${st.postSummary !== false ? 'checked' : ''}> انشر ملخص الدرس في الدردشة قبل النهاية</label>
     <details style="margin-top:8px"><summary class="mut">⚙️ إعدادات متقدمة</summary>
     <div class="cls-grid">
       <div><label>فتح الحصة قبل (د)</label><input id="sPrep" type="number" value="${st.prepMin ?? 1}"></div>
@@ -341,15 +352,23 @@ async function vSettings() {
     <div class="mut" style="margin-top:6px">الضمانة: إذا لم تدخل خلال هذه المدة، أو غبت أكثر منها، يوقف المساعد ويغادر.</div>
     </details>
     <div class="row" style="margin-top:8px"><button class="btn" id="sSave">حفظ</button><span id="sMsg" class="mut"></span></div></div>
+    <div class="card"><b>📱 التقارير على جوالك</b>
+      <div class="mut">ترفع الإضافة تقارير آخر 3 أسابيع إلى رابط خاص بك، تفتحه من الجوال. أسماء الطلاب تُرسل إلى خادم «حاضر المعلم»، فلا تفعّلها إلا إن وافقت على ذلك.</div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="sCloud" ${st.cloud ? 'checked' : ''}> تفعيل التقارير على الجوال</label>
+      <div id="cloudOut" style="margin-top:6px"></div></div>
     <div class="card"><b>التحديث</b> <span class="mut">الإصدار الحالي ${chrome.runtime.getManifest().version}</span>
       <div class="row" style="margin-top:6px"><button class="btn s" id="upChk">فحص التحديث الآن</button><span id="upMsg" class="mut"></span></div></div>
     <div class="card"><b>نسخة احتياطية</b><div class="row" style="margin-top:6px">
       <button class="btn s" id="bExp">تصدير</button><label class="btn s" style="margin:0">استيراد<input id="bImp" type="file" accept=".json" hidden></label></div></div>
     <div class="card mut">يجب أن يكون الحساب المسجّل في Teams بهذا المتصفح «مقدّمًا» في الاجتماع حتى يستطيع القفل. لمشاركة المقطع اضغط «مشاركة» في Teams واختر تبويب المقطع (يطلب Chrome ضغطة منك لأسباب أمنية).</div>`;
   $('#sSave').onclick = async () => {
-    await set('settings', { ...(await get('settings')), teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim() });
+    await set('settings', { ...(await get('settings')), teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim(), postSummary: $('#sSum').checked });
     $('#sMsg').textContent = '✓ حُفظ';
   };
+  const showCloud = r => { $('#cloudOut').innerHTML = r.cloud ? `<div class="row"><a class="btn" href="${esc(r.url)}" target="_blank">فتح تقاريري</a><button class="btn s" id="cCp">نسخ الرابط</button></div><div class="mut" style="margin-top:4px">احفظ الرابط في جوالك ولا تشاركه: من يملكه يرى التقارير.</div>` : '';
+    const b = $('#cCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(r.url); b.textContent = '✓ نُسخ'; }; };
+  if (st.cloud) chrome.runtime.sendMessage({ t: 'cloudLink' }).then(showCloud);
+  $('#sCloud').onchange = async e => showCloud(await chrome.runtime.sendMessage({ t: 'cloudLink', enable: e.target.checked }));
   $('#upChk').onclick = async () => { $('#upMsg').textContent = '...'; const r = await chrome.runtime.sendMessage({ t: 'checkUpdate' });
     $('#upMsg').textContent = !r.ok ? r.err : r.newer ? 'يوجد إصدار ' + r.version : 'لديك آخر إصدار'; render(); };
   $('#bExp').onclick = async () => {

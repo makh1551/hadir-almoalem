@@ -1,0 +1,80 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>تقاريري — حاضر المعلم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6;--grn:#15803d;--amb:#b45309;--red:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1514;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e;--grn:#4ade80;--amb:#fbbf24;--red:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.7 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+header{background:var(--p);color:#fff;padding:16px}header b{font-size:18px}header .s{opacity:.85;font-size:13px}
+.wrap{max-width:640px;margin:auto;padding:12px 16px 40px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:8px;font:inherit;cursor:pointer}
+.tabs button.on{background:var(--p);color:#fff;border-color:var(--p)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.mut{color:var(--mut);font-size:13px}
+.tag{display:inline-block;border-radius:20px;padding:0 9px;font-size:12.5px;background:#0f766e14}
+.g{color:var(--grn)}.a{color:var(--amb)}.r{color:var(--red)}
+details summary{cursor:pointer;color:var(--p);font-size:14px;margin-top:6px}
+ul{margin:4px 0;padding-inline-start:18px}
+.big{font-size:17px;font-weight:700}
+.empty{text-align:center;color:var(--mut);padding:30px}
+select{font:inherit;padding:6px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);width:100%}
+</style></head><body>
+<header><b>🎓 تقاريري</b><div class="s" id="sub">حاضر المعلم</div></header>
+<div class="wrap">
+  <div class="tabs"><button data-v="day" class="on">اليوم</button><button data-v="week">الأسبوع</button><button data-v="abs">الغياب</button></div>
+  <div id="main"><div class="empty">جارٍ التحميل…</div></div>
+</div>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const token = location.pathname.split('/').pop();
+const pad = n => String(n).padStart(2, '0'); const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmtDay = d => new Date(d + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' });
+let data = { sessions: [] }, view = 'day', pickDay = '';
+const cnt = (s, p) => s.report.filter(r => r.s.startsWith(p)).length;
+function sessionCard(s) {
+  const abs = s.report.filter(r => r.s.startsWith('غائب')).map(r => r.n), late = s.report.filter(r => r.s.startsWith('متأخر')).map(r => r.n);
+  return `<div class="card"><div class="row"><span class="big" style="flex:1">${esc(s.start)} · ${esc(s.cls)}</span>${s.phase === 'stopped' ? '<span class="tag r">أُوقفت</span>' : ''}</div>
+    <div class="mut">${esc(s.lesson)}</div>
+    <div class="row" style="margin-top:6px"><span class="tag g">حاضر ${cnt(s, 'حاضر')}</span><span class="tag a">متأخر ${cnt(s, 'متأخر')}</span><span class="tag a">خرج ${cnt(s, 'خرج')}</span><span class="tag r">غائب ${abs.length}</span>${s.hands ? `<span class="tag">✋ ${s.hands}</span>` : ''}</div>
+    ${abs.length ? `<div style="margin-top:6px"><b class="r">الغائبون:</b> ${esc(abs.join('، '))}</div>` : ''}
+    ${late.length ? `<div><b class="a">المتأخرون:</b> ${esc(late.join('، '))}</div>` : ''}
+    ${(s.questions || []).length ? `<details><summary>❓ الأسئلة (${s.questions.length})</summary><ul>${s.questions.map(q => `<li>${esc(q.t)}${q.a.length ? '<br><span class="mut">🏅 ' + esc(q.a.slice(0, 3).join('، ')) + '</span>' : ''}</li>`).join('')}</ul></details>` : ''}
+    ${s.summary ? `<details><summary>📝 ملخص الدرس</summary><div style="white-space:pre-wrap">${esc(s.summary)}</div></details>` : ''}
+  </div>`;
+}
+function render() {
+  const ss = data.sessions || [], main = document.getElementById('main');
+  if (!ss.length) { main.innerHTML = '<div class="empty">لا توجد تقارير بعد. تظهر هنا بعد أول حصة.</div>'; return; }
+  const days = [...new Set(ss.map(s => s.day))].sort().reverse();
+  if (view === 'day') {
+    pickDay = pickDay || days[0];
+    main.innerHTML = `<div class="card"><select id="dsel">${days.map(d => `<option value="${d}" ${d === pickDay ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select></div>`
+      + ss.filter(s => s.day === pickDay).sort((a, b) => a.start.localeCompare(b.start)).map(sessionCard).join('');
+    document.getElementById('dsel').onchange = e => { pickDay = e.target.value; render(); };
+  } else if (view === 'week') {
+    const now = new Date(); now.setDate(now.getDate() - now.getDay()); const from = ymd(now);
+    const wk = ss.filter(s => s.day >= from); const byCls = {};
+    for (const s of wk) (byCls[s.cls] = byCls[s.cls] || []).push(s);
+    main.innerHTML = Object.keys(byCls).length ? Object.entries(byCls).map(([c, list]) => {
+      let tot = 0, pres = 0; for (const s of list) { tot += s.report.length; pres += s.report.filter(r => !r.s.startsWith('غائب')).length; }
+      const pct = tot ? Math.round(pres / tot * 100) : 0;
+      return `<div class="card"><div class="row"><span class="big" style="flex:1">${esc(c)}</span><span class="tag ${pct >= 90 ? 'g' : pct >= 75 ? 'a' : 'r'}">${pct}% حضور</span></div>
+        <div class="mut">${list.length} حصة هذا الأسبوع</div></div>`;
+    }).join('') : '<div class="empty">لا حصص هذا الأسبوع بعد.</div>';
+  } else {
+    const since = ymd(new Date(Date.now() - 14 * 86400000)); const count = {};
+    for (const s of ss.filter(s => s.day >= since)) for (const r of s.report) if (r.s.startsWith('غائب')) { const k = r.n + '|' + s.cls; count[k] = (count[k] || 0) + 1; }
+    const list = Object.entries(count).sort((a, b) => b[1] - a[1]);
+    main.innerHTML = `<div class="card mut">الغياب في آخر أسبوعين، مرتب من الأكثر.</div>` + (list.length ? `<div class="card">${list.map(([k, n]) => { const [name, c] = k.split('|');
+      return `<div class="row" style="border-bottom:1px solid var(--bd);padding:6px 0"><span style="flex:1">${esc(name)} <span class="mut">· ${esc(c)}</span></span><span class="tag ${n >= 3 ? 'r' : 'a'}">${n}</span></div>`; }).join('')}</div>` : '<div class="empty">لا غياب 👏</div>');
+  }
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b)); view = b.dataset.v; render(); });
+fetch('/api/r/' + token).then(r => r.json()).then(d => {
+  data = d; document.getElementById('sub').textContent = (d.teacher ? 'الأستاذ/ ' + d.teacher + ' · ' : '') + (d.at ? 'آخر تحديث ' + new Date(d.at).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+  render();
+}).catch(() => { document.getElementById('main').innerHTML = '<div class="empty">تعذّر التحميل</div>'; });
+</script>
+</body></html>

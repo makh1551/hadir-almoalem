@@ -1,0 +1,51 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ملاحظاتك — حاضر المعلم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1514;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.8 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+.wrap{max-width:920px;margin:auto;padding:0 16px}
+header{background:linear-gradient(135deg,#0f766e,#115e59);color:#fff;padding:36px 0 44px}
+header a{color:#fff;opacity:.85;text-decoration:none;font-size:14px}
+h1{font-size:clamp(26px,5vw,36px);margin:6px 0 4px}header p{margin:0;opacity:.9}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:-22px 0 20px}
+nav.toc a{background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:6px 14px;color:var(--tx);text-decoration:none;font-size:14px}
+section{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:16px;scroll-margin-top:12px}
+.step{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+@media (max-width:720px){.step{grid-template-columns:1fr}}
+.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--p);color:#fff;font-weight:700;margin-inline-end:8px}
+h2{font-size:20px;margin:0 0 10px;display:flex;align-items:center}
+ol,ul{margin:0;padding-inline-start:22px}li{margin:4px 0}
+img{width:100%;border-radius:12px;border:1px solid var(--bd);box-shadow:0 4px 16px #0001;background:#fff}
+code{background:#0f766e18;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+.tip{background:#0f766e12;border-inline-start:4px solid var(--p2);padding:8px 12px;border-radius:8px;margin-top:12px;font-size:15px}
+.btn{display:inline-block;background:var(--p);color:#fff;font-weight:700;padding:10px 20px;border-radius:12px;text-decoration:none}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:20px 0 40px}
+</style>
+<style>details{border-bottom:1px solid var(--bd);padding:10px 0}details:last-child{border:0}summary{cursor:pointer;font-weight:600}
+label{display:block;margin:12px 0 4px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx)}
+textarea{min-height:80px}.stars{display:flex;gap:6px;flex-direction:row-reverse;justify-content:flex-end}.stars button{font-size:28px;background:none;border:0;cursor:pointer;color:#cbd5d1;padding:0}.stars button.on{color:#f59e0b}
+.chk{display:flex;flex-wrap:wrap;gap:8px}.chk label{display:flex;gap:6px;align-items:center;font-weight:normal;margin:0;border:1px solid var(--bd);border-radius:999px;padding:4px 12px}.chk input{width:auto}
+button.btn{border:0;cursor:pointer;font:inherit;margin-top:14px}</style></head><body>
+<header><div class="wrap"><a href="/">← حاضر المعلم</a><h1>📝 ملاحظاتك بعد أسبوع</h1><p>دقيقتان تساعدان على تطوير الأداة. لا يلزم ذكر الاسم.</p></div></header>
+<main class="wrap" style="margin-top:16px"><section><form id="f">
+<label>تقييمك العام للإضافة</label><div class="stars" id="stars"><button type="button" data-v="5">★</button><button type="button" data-v="4">★</button><button type="button" data-v="3">★</button><button type="button" data-v="2">★</button><button type="button" data-v="1">★</button></div>
+<label>ما الذي استخدمته؟</label><div class="chk"><label><input type="checkbox" name="used" value="سحب الحصص">سحب الحصص</label><label><input type="checkbox" name="used" value="القفل قبل الدخول">القفل قبل الدخول</label><label><input type="checkbox" name="used" value="رصد الحضور">رصد الحضور</label><label><input type="checkbox" name="used" value="المقطع">المقطع</label><label><input type="checkbox" name="used" value="الأسئلة في الدردشة">الأسئلة في الدردشة</label><label><input type="checkbox" name="used" value="الإنهاء الآلي">الإنهاء الآلي</label><label><input type="checkbox" name="used" value="تقرير الأسبوع">تقرير الأسبوع</label><label><input type="checkbox" name="used" value="ملخص واتساب">ملخص واتساب</label></div>
+<label>ما الذي نفعك أكثر؟</label><textarea name="good"></textarea>
+<label>ما الذي تعثّر أو أزعجك؟</label><textarea name="bad"></textarea>
+<label>فكرة أو اقتراح</label><textarea name="idea"></textarea>
+<label>المدرسة (اختياري)</label><input name="school">
+<label>الاسم (اختياري)</label><input name="name">
+<button class="btn" type="submit">إرسال</button><div id="msg" style="margin-top:10px"></div>
+</form></section>
+<script>
+let rating=0;document.querySelectorAll('#stars button').forEach(b=>b.onclick=()=>{rating=+b.dataset.v;document.querySelectorAll('#stars button').forEach(x=>x.classList.toggle('on',+x.dataset.v<=rating))});
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const msg=document.getElementById('msg');
+if(!rating){msg.textContent='اختر تقييمًا من النجوم';return}
+const body={rating,used:f.getAll('used'),good:f.get('good'),bad:f.get('bad'),idea:f.get('idea'),school:f.get('school'),name:f.get('name')};
+msg.textContent='جارٍ الإرسال…';
+try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw 0;
+e.target.innerHTML='<p style="font-size:18px;text-align:center">✅ شكرًا لك! وصلت ملاحظتك.</p>'}catch(x){msg.textContent='تعذّر الإرسال، حاول مرة أخرى'}};
+</script></main>
+<footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer></body></html>
