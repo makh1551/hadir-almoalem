@@ -250,7 +250,7 @@ async function vStudents() {
     <div class="mut">في مدرستي: اختر «الفصل» ثم «بحث» حتى يظهر جدول الطلاب، ثم اسحب.</div>
     <div class="mut">افتح صفحة الفصل التي فيها أسماء الطلاب (أعضاء فريق الفصل في Teams، أو قائمة الفصل في مدرستي)، ثم اضغط «اسحب».</div>
     <label>الصف</label><input id="rCls" list="clsList" placeholder="السادس أ"><datalist id="clsList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><span id="pullMsg" class="mut"></span></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><button class="btn s" id="pullDiag">🩺 تشخيص السحب</button><span id="pullMsg" class="mut"></span></div>
     <label>الأسماء (اسم في كل سطر — راجعها واحذف غير الطلاب)</label><textarea id="rNames">${esc(pulled.join('\n'))}</textarea>
     <div class="row"><button class="btn" id="rSave">حفظ قائمة الصف</button></div></details>`;
   for (const [k, v] of Object.entries(rosters)) {
@@ -259,6 +259,14 @@ async function vStudents() {
   }
   $('#main').innerHTML = h;
   $('#pull').onclick = pullNames;
+  $('#pullDiag').onclick = async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    try {
+      const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: scrapeDiag });
+      const txt = '🩺 تشخيص السحب ' + chrome.runtime.getManifest().version + '\n' + res.map((r, i) => 'إطار ' + i + ':\n' + Object.entries(r.result || {}).map(([k, v]) => k + ': ' + v).join('\n')).join('\n\n');
+      await navigator.clipboard.writeText(txt); $('#pullMsg').textContent = '✓ نُسخ التشخيص (بلا أسماء) — الصقه في المحادثة';
+    } catch (e) { $('#pullMsg').textContent = 'تعذّر: ' + e.message; }
+  };
   // افتح قسم السحب تلقائيًا على صفحات مدرستي/Teams، واقترح اسم الفصل من الصفحة
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -318,6 +326,16 @@ function scrapeNames() {
     if (isName(t) && !BAD.test(t)) out.add(t);
   }
   return [...out];
+}
+// تشخيص بنية الصفحة دون كشف الأسماء (تُستبدل النصوص بعدد كلماتها)
+function scrapeDiag() {
+  const mask = t => String(t || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 8).map(x => /[:：]/.test(x) || x.length < 4 ? x.slice(0, 40) : `[${x.split(/\s+/).length} كلمات]`).join(' ⏎ ');
+  const path = e => { const a = []; for (let i = 0; e && i < 7; i++, e = e.parentElement) a.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : '')); return a.join(' < '); };
+  const marks = [...document.querySelectorAll('body *')].filter(e => e.children.length <= 3 && /اسم الفصل/.test(e.textContent || '') && (e.textContent || '').length < 120);
+  const out = { url: location.pathname.slice(0, 80), iframes: document.querySelectorAll('iframe').length, marks: marks.length, tables: document.querySelectorAll('table').length, rows: document.querySelectorAll('tbody tr').length };
+  marks.slice(0, 2).forEach((m, i) => { out['mark' + i] = path(m); let c = m; for (let k = 0; k < 4 && c.parentElement; k++) c = c.parentElement; out['card' + i] = mask(c.innerText); });
+  const tr = document.querySelector('tbody tr'); if (tr) { out.row = path(tr); out.rowText = mask(tr.innerText); }
+  return out;
 }
 async function pullNames() {
   const msg = $('#pullMsg'); msg.textContent = 'جارٍ السحب...';
