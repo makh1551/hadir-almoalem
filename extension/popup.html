@@ -10,7 +10,7 @@
   header{background:var(--p);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px}
   header b{font-size:16px} header small{opacity:.8;margin-inline-start:auto}
   nav{display:flex;background:#fff;border-bottom:1px solid var(--bd)}
-  nav button{flex:1;border:0;background:none;padding:9px 4px;cursor:pointer;font:inherit;color:var(--mut);border-bottom:2px solid transparent}
+  nav button{flex:1;border:0;background:none;padding:9px 2px;font-size:12.5px!important;cursor:pointer;font:inherit;color:var(--mut);border-bottom:2px solid transparent}
   nav button.on{color:var(--p);border-color:var(--p);font-weight:bold}
   main{padding:10px}
   .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:8px}
@@ -35,6 +35,7 @@
 <header><b>🎓 حاضر المعلم</b><small id="clock"></small></header>
 <nav>
   <button data-v="today" class="on">اليوم</button>
+  <button data-v="week">الأسبوع</button>
   <button data-v="classes">الحصص</button>
   <button data-v="students">الطلاب</button>
   <button data-v="reports">التقارير</button>

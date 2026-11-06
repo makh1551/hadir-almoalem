@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تقرير الأسبوع — حاضر المعلم</title>
+<style>
+  @font-face{font-family:Plex;src:local("IBM Plex Sans Arabic")}
+  :root{--p:#0f766e;--bd:#d9e2df;--mut:#5b6b68;--grn:#15803d;--amb:#b45309;--red:#b91c1c}
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef3f1;font:13px/1.6 "IBM Plex Sans Arabic",Tahoma,"Segoe UI",Arial;color:#14211f}
+  .page{max-width:1000px;margin:20px auto;background:#fff;padding:28px 32px;border-radius:12px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--p);padding-bottom:10px;margin-bottom:16px}
+  h1{margin:0;font-size:22px;color:var(--p)} .sub{color:var(--mut)}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .kpi{border:1px solid var(--bd);border-radius:10px;padding:10px;text-align:center} .kpi b{display:block;font-size:22px;color:var(--p)}
+  h2{font-size:15px;margin:18px 0 8px;color:var(--p)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border:1px solid var(--bd);padding:4px 6px;text-align:center} th{background:#f0f7f5}
+  td.n{text-align:right;white-space:nowrap}
+  .ok{color:var(--grn)} .late{color:var(--amb)} .abs{color:var(--red);font-weight:bold} .out{color:var(--amb)}
+  .legend{color:var(--mut);font-size:12px;margin-top:6px}
+  ul{margin:0;padding-inline-start:20px}
+  .bar{position:sticky;top:0;background:#0f766e;color:#fff;padding:10px;text-align:center}
+  .bar button{background:#fff;color:#0f766e;border:0;border-radius:8px;padding:8px 18px;font:inherit;font-weight:bold;cursor:pointer}
+  footer{margin-top:20px;color:var(--mut);font-size:11px;text-align:center}
+  .empty{padding:40px;text-align:center;color:var(--mut)}
+  @media print{body{background:#fff}.bar{display:none}.page{margin:0;padding:0;max-width:none;border-radius:0}@page{size:A4 landscape;margin:12mm}}
+</style>
+</head>
+<body>
+<div class="bar"><button id="print">🖨️ طباعة / حفظ PDF</button></div>
+<div class="page" id="page"></div>
+<script src="report.js"></script>
+</body>
+</html>

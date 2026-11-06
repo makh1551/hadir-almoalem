@@ -9,7 +9,7 @@ async function set(k, v) { await chrome.storage.local.set({ [k]: v }); }
 const pad = n => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const PH = { join: ['جارٍ الدخول', 'warn'], lock: ['جارٍ القفل', 'warn'], live: ['يعمل', 'ok'], done: ['انتهت', 'ok'], stopped: ['أُوقف', 'bad'] };
-let view = 'today', pulled = [];
+let view = 'today', pulled = [], pendingEdit = null;
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b)); view = b.dataset.v; render();
@@ -17,7 +17,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 setInterval(() => $('#clock').textContent = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }), 1000);
 
 async function render() {
-  await ({ today: vToday, classes: vClasses, students: vStudents, reports: vReports, settings: vSettings })[view]();
+  await ({ today: vToday, week: vWeek, classes: vClasses, students: vStudents, reports: vReports, settings: vSettings })[view]();
   const u = await get('update');
   if (u.newer) {
     const b = document.createElement('div'); b.className = 'card ok';
@@ -52,10 +52,12 @@ async function vToday() {
         ${s.teacherSeen ? '' : '<button class="btn xl" data-c="teacherIn">✋ أنا داخل</button>'}
         <button class="btn s xl" data-c="video">🎬 المقطع</button>
         <button class="btn s xl" data-c="status">👥 الحضور</button>
+        <button class="btn s xl" data-c="ask">❓ سؤال</button>
       </div>
       <details style="margin-top:8px"><summary class="mut">المزيد</summary>
         <div class="row" style="margin-top:6px"><button class="btn s" data-c="muteAll">كتم الجميع</button><button class="btn s" data-c="relock">إعادة القفل</button><button class="btn r" data-c="end">إنهاء الحصة</button></div>
         <div class="row" style="margin-top:6px"><input id="allowName" placeholder="اسم الطالب"><button class="btn s" data-c="allow">اسمح له بالحديث</button></div>
+        <div class="row" style="margin-top:6px"><input id="askText" placeholder="سؤال من عندك (اختياري)" style="flex:1"><button class="btn s" data-c="ask">انشره</button></div>
       </details>
       <div id="cmdOut" class="mut" style="margin-top:6px"></div></div>`;
     setTimeout(() => document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => cmd(key, b.dataset.c)), 0);
@@ -102,9 +104,10 @@ async function vToday() {
 }
 async function cmd(key, c) {
   const out = $('#cmdOut'); out.textContent = '...';
-  const r = await chrome.runtime.sendMessage({ t: 'cmd', key, c, name: $('#allowName')?.value || '' });
+  const r = await chrome.runtime.sendMessage({ t: 'cmd', key, c, name: $('#allowName')?.value || '', text: $('#askText')?.value.trim() || '' });
   if (!r?.ok) { out.textContent = r?.err || 'تعذّر التنفيذ'; return; }
   if (c === 'status') out.innerHTML = `الطلاب الآن (${r.people.length}): ${esc(r.people.join('، '))}<br>✋ ${esc(r.hands.join('، ') || 'لا أحد')}`;
+  else if (c === 'ask') { out.textContent = '✓ نُشر: ' + r.text + ' — سأنبّهك بأول من يجيب'; if ($('#askText')) $('#askText').value = ''; }
   else out.textContent = '✓ تم';
   if (c === 'end') setTimeout(render, 1500);
 }
@@ -119,7 +122,8 @@ async function vClasses() {
     <div><label>الصف</label><input id="cCls" placeholder="السادس أ"></div>
     <div class="full"><label>الدرس</label><input id="cLesson"></div>
     <div class="full"><label>رابط اجتماع Teams</label><input id="cLink" placeholder="https://teams.microsoft.com/..."></div>
-    <div class="full"><label>رابط مقطع الدرس (من التحضير)</label><input id="cVideo" placeholder="https://..."></div>
+    <div class="full"><label>رابط مقطع الدرس (من التحضير)</label><div class="row"><input id="cVideo" placeholder="https://..." style="flex:1"><button class="btn s" id="cSug">🔎 اقترح من عين</button></div><div id="sugOut"></div></div>
+    <div class="full"><label>أسئلة الدرس للدردشة (سؤال في كل سطر — اختياري)</label><textarea id="cQs" style="min-height:60px" placeholder="إن تركتها فارغة تُستخدم أسئلة عامة من عنوان الدرس"></textarea></div>
   </div><div class="row" style="margin-top:8px"><button class="btn" id="cAdd">حفظ الحصة</button><span class="mut">تُفتح الحصة تلقائيًا قبل موعدها</span></div></div>`;
   const now = new Date().toISOString().slice(0, 10);
   const shown = [...classes].filter(c => !c.date || c.date >= now)
@@ -137,7 +141,7 @@ async function vClasses() {
     const list = await get('classes');
     const old = list.find(x => x.id === editId) || {};
     const c = { ...old, id: editId || Date.now().toString(36), day: old.date ? undefined : Number($('#cDay').value), start: $('#cStart').value, dur: Number($('#cDur').value || 39),
-      cls: $('#cCls').value.trim(), lesson: $('#cLesson').value.trim(), link: $('#cLink').value.trim(), video: $('#cVideo').value.trim() };
+      cls: $('#cCls').value.trim(), lesson: $('#cLesson').value.trim(), link: $('#cLink').value.trim(), video: $('#cVideo').value.trim(), questions: $('#cQs').value.trim() };
     if (!c.start || !(c.cls || c.lesson)) return alert('البداية والصف أو الدرس مطلوبة');
     const i = list.findIndex(x => x.id === c.id); if (i >= 0) list[i] = c; else list.push(c);
     await set('classes', list);
@@ -153,8 +157,59 @@ async function vClasses() {
   document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const c = classes.find(x => x.id === b.dataset.edit); editId = c.id;
     $('#cDay').value = c.day ?? new Date((c.date || '2026-01-01') + 'T12:00').getDay(); $('#cStart').value = c.start; $('#cDur').value = c.dur; $('#cCls').value = c.cls;
-    $('#cLesson').value = c.lesson || ''; $('#cLink').value = c.link || ''; $('#cVideo').value = c.video || '';
+    $('#cLesson').value = c.lesson || ''; $('#cLink').value = c.link || ''; $('#cVideo').value = c.video || ''; $('#cQs').value = c.questions || '';
     $('#cAdd').textContent = 'حفظ التعديل'; window.scrollTo(0, 0);
+  });
+  $('#cSug').onclick = () => suggestInto($('#cLesson').value, $('#cCls').value, url => { $('#cVideo').value = url; });
+  if (pendingEdit) { const b = document.querySelector(`[data-edit="${pendingEdit}"]`); pendingEdit = null; if (b) b.click(); }
+}
+
+// ===== اقتراح مقطع «عين» =====
+async function suggestInto(title, cls, onPick, outSel = '#sugOut') {
+  const out = $(outSel); if (!title) { out.innerHTML = '<span class="mut">اكتب عنوان الدرس أولًا</span>'; return; }
+  out.innerHTML = '<span class="mut">جارٍ البحث في عين…</span>';
+  const r = await chrome.runtime.sendMessage({ t: 'suggestVideo', title, cls });
+  out.innerHTML = (r.list || []).map((v, i) => `<div class="row" style="margin-top:4px"><span style="flex:1">🎬 ${esc(v.title)} <span class="mut">· ${esc(v.owner)} ${esc(v.len)}</span></span>
+      <a class="btn s" href="${esc(v.url)}" target="_blank">معاينة</a><button class="btn" data-pick="${i}">اعتمد</button></div>`).join('')
+    + `<div class="mut" style="margin-top:4px">${r.list?.length ? '' : 'لم أجد مقطعًا مناسبًا. '}<a href="${esc(r.searchUrl)}" target="_blank">ابحث بنفسك</a></div>`;
+  out.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { onPick(r.list[+b.dataset.pick].url); out.innerHTML = '<span class="tag ok">✓ اعتُمد المقطع</span>'; });
+}
+
+// ===== الأسبوع =====
+let weekOffset = 0;
+async function vWeek() {
+  const classes = await get('classes');
+  const base = new Date(); base.setHours(12, 0, 0, 0);
+  const lead = base.getDay() >= 5 ? 7 : 0; // الجمعة والسبت: اعرض أسبوع الدوام القادم
+  base.setDate(base.getDate() - base.getDay() + lead + weekOffset * 7);
+  const days = [0, 1, 2, 3, 4].map(i => { const d = new Date(base); d.setDate(base.getDate() + i); return d; });
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  let missing = 0, total = 0, body = '';
+  for (const d of days) {
+    const list = classes.filter(c => c.date ? c.date === ymd(d) : Number(c.day) === d.getDay()).sort((a, b) => a.start.localeCompare(b.start));
+    body += `<div class="card"><b>${d.toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' })}</b>`;
+    if (!list.length) body += `<div class="mut">لا حصص</div>`;
+    for (const c of list) {
+      total++;
+      const need = [!c.link && 'رابط', !c.video && 'مقطع', !c.cls && 'الصف'].filter(Boolean);
+      if (need.length) missing++;
+      body += `<div class="row" style="margin-top:6px;border-top:1px solid var(--bd);padding-top:6px"><span style="flex:1"><b>${c.start}</b> · ${esc(c.cls || '—')} · <span class="mut">${esc(c.lesson || '')}</span></span>
+        ${need.length ? need.map(n => `<span class="tag warn">بلا ${n}</span>`).join('') + `<button class="btn s" data-fix="${c.id}">جهّزها</button>` : '<span class="tag ok">جاهزة ✓</span>'}</div>
+        ${!c.video ? `<div id="ws-${c.id}"></div>` : ''}`;
+    }
+    body += `</div>`;
+  }
+  $('#main').innerHTML = `<div class="card hero"><div class="row"><button class="btn s" id="wPrev">‹ السابق</button>
+      <span class="big" style="flex:1;text-align:center">${weekOffset === 0 ? (lead ? 'الأسبوع القادم' : 'هذا الأسبوع') : weekOffset === 1 && !lead ? 'الأسبوع القادم' : 'أسبوع ' + days[0].toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}</span>
+      <button class="btn s" id="wNext">التالي ›</button></div>
+      <div style="margin-top:6px">${total} حصة · ${missing ? `<b style="color:var(--amb)">${missing} تحتاج تجهيزًا</b>` : '<b style="color:var(--grn)">كلها جاهزة ✓</b>'}</div></div>` + body;
+  $('#wPrev').onclick = () => { weekOffset--; render(); };
+  $('#wNext').onclick = () => { weekOffset++; render(); };
+  document.querySelectorAll('[data-fix]').forEach(b => b.onclick = async () => {
+    const c = classes.find(x => x.id === b.dataset.fix);
+    if (!c.video && c.link && c.cls) { // ينقصه المقطع فقط: اقترح هنا مباشرة
+      suggestInto(c.lesson, c.cls, async url => { const cl = await get('classes'); const x = cl.find(y => y.id === c.id); x.video = url; await set('classes', cl); setTimeout(render, 600); }, '#ws-' + c.id);
+    } else { pendingEdit = c.id; view = 'classes'; document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.v === 'classes')); render(); }
   });
 }
 
@@ -219,7 +274,11 @@ async function vReports() {
   const sessions = await get('sessions');
   const list = Object.entries(sessions).filter(([, s]) => s.report).sort((a, b) => (b[1].day + b[1].start).localeCompare(a[1].day + a[1].start));
   if (!list.length) { $('#main').innerHTML = '<div class="card mut">لا تقارير بعد. يظهر التقرير هنا بعد انتهاء كل حصة.</div>'; return; }
-  let h = `<div class="card"><div class="row"><button class="btn" id="waDay">📲 ملخص اليوم على واتساب</button><button class="btn s" id="cpDay">نسخ الملخص</button></div></div>`;
+  const clsNames = [...new Set(list.map(([, s]) => s.cls).filter(Boolean))];
+  let h = `<div class="card"><div class="row"><button class="btn" id="waDay">📲 ملخص اليوم على واتساب</button><button class="btn s" id="cpDay">نسخ الملخص</button></div>
+    <div class="row" style="margin-top:8px"><select id="wrCls">${clsNames.map(c => `<option>${esc(c)}</option>`).join('')}</select>
+    <select id="wrWk"><option value="0">هذا الأسبوع</option><option value="-1">الأسبوع الماضي</option></select>
+    <button class="btn s" id="wrGo">📄 تقرير الأسبوع PDF</button></div></div>`;
   for (const [k, s] of list) {
     const c = p => s.report.filter(r => r.status.startsWith(p)).length;
     h += `<div class="card"><div class="row"><b>${s.day} · ${s.start} · ${esc(s.cls)}</b><span class="tag ${PH[s.phase]?.[1] || ''}">${PH[s.phase]?.[0] || ''}</span></div>
@@ -231,6 +290,7 @@ async function vReports() {
   }
   $('#main').innerHTML = h;
   document.querySelectorAll('[data-csv]').forEach(b => b.onclick = () => csv(sessions[b.dataset.csv]));
+  $('#wrGo').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL(`report.html?cls=${encodeURIComponent($('#wrCls').value)}&w=${$('#wrWk').value}`) });
   $('#waDay').onclick = () => chrome.runtime.sendMessage({ t: 'waSummary' });
   $('#cpDay').onclick = async () => { await navigator.clipboard.writeText(await chrome.runtime.sendMessage({ t: 'summaryText' })); $('#cpDay').textContent = '✓ نُسخ'; };
   document.querySelectorAll('[data-rasd]').forEach(b => b.onclick = async () => {
@@ -248,7 +308,8 @@ async function vReports() {
     document.getElementById(id).innerHTML = `<table><tr><th>الطالب</th><th>الحالة</th><th>دخل</th><th>آخر ظهور</th></tr>${
       s.report.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.status)}</td><td>${r.first}</td><td>${r.last}</td></tr>`).join('')}</table>
       ${s.hands.length ? `<p><b>✋ رفع اليد:</b> ${esc(s.hands.map(x => x.n + ' ' + x.at).join('، '))}</p>` : ''}
-      ${s.chat.length ? `<p><b>💬 الدردشة:</b><br>${s.chat.map(x => esc(x.at + ' — ' + x.txt)).join('<br>')}</p>` : ''}
+      ${(s.questions || []).length ? `<p><b>❓ الأسئلة:</b><br>${s.questions.map(q => esc(q.at + ' — ' + q.text) + (q.answers.length ? '<br>&nbsp;&nbsp;🏅 ' + esc(q.answers.slice(0, 3).map((a, i) => (i + 1) + '. ' + a.name).join('  ')) : '')).join('<br>')}</p>` : ''}
+      ${s.chat.length ? `<p><b>💬 الدردشة:</b><br>${s.chat.map(x => esc(x.at + ' — ' + (x.who ? x.who + ': ' : '') + x.txt)).join('<br>')}</p>` : ''}
       <p class="mut">${s.events.map(e => esc(e.at + ' ' + e.ev)).join(' · ')}</p>`;
   });
 }

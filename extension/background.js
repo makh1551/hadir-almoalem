@@ -63,6 +63,14 @@ async function tick() {
     chrome.notifications.create('summary-' + day, { type: 'basic', iconUrl: 'icons/128.png', title: 'حاضر المعلم',
       message: `انتهت حصص اليوم (${todays.length}). اضغط لإرسال الملخص على واتساب.`, buttons: [{ title: '📲 إرسال الملخص' }], priority: 2 });
   }
+  // منع نوم الجهاز من قبل أول حصة بـ10 د حتى نهاية آخر حصة
+  try {
+    const td = classes.filter(c => classToday(c, day, dow) && c.link);
+    const live = Object.values(sessions).some(x => x.day === day && ['join', 'lock', 'live'].includes(x.phase));
+    const from = td.length ? Math.min(...td.map(c => mins(c.start))) - 10 : 1e9;
+    const to = td.length ? Math.max(...td.map(c => mins(c.start) + Number(c.dur || 39))) + 5 : -1;
+    if (live || (nm >= from && nm <= to)) chrome.power.requestKeepAwake('display'); else chrome.power.releaseKeepAwake();
+  } catch (e) {}
   // عدّاد الأيقونة
   try {
     const live = Object.values(sessions).find(x => x.day === day && ['join', 'lock', 'live'].includes(x.phase));
@@ -132,7 +140,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const st = await get('settings');
       const roster = (await get('rosters'))[s.cls] || [];
       const c = (await get('classes')).find(x => x.id === s.classId) || {};
-      reply({ key, s, st, roster, video: c.video || '' });
+      reply({ key, s, st, roster, video: c.video || '', questions: c.questions || '' });
     } else if (m.t === 'syncWho') {
       const sync = await get('sync'); if (sender.tab?.id !== sync.tabId) return reply(null);
       const st = await get('settings'); const known = {};
@@ -160,6 +168,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const cl = await get('classes'); let n = 0;
       for (const c of cl) if (c.src === 'cal' && !c.cls && threadOf(c.link) === th) { c.cls = m.cls; n++; }
       await set('classes', cl); reply(n);
+    } else if (m.t === 'suggestVideo') {
+      reply(await suggestVideo(m.title || '', m.cls || ''));
     } else if (m.t === 'checkUpdate') {
       reply(await checkUpdate(true));
     } else if (m.t === 'syncNow') {
@@ -264,3 +274,26 @@ chrome.runtime.onMessage.addListener((m, _, reply) => {
   if (m.t === 'waSummary') { openWhatsApp(m.day).then(() => reply(true)); return true; }
   if (m.t === 'summaryText') { daySummaryText(m.day || today()).then(reply); return true; }
 });
+
+// ===== اقتراح مقطع «عين» للدرس =====
+async function suggestVideo(title, cls) {
+  const clean = String(title).replace(/\(.*?\)/g, ' ').replace(/(الدرس|درس)\s*(الأول|الثاني|الثالث|الرابع|الخامس|السادس|\d+)\s*[:：-]?/g, '').trim();
+  const grade = (String(cls).match(/الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس/) || [''])[0];
+  const q = `عين ${clean} ${grade ? 'الصف ' + grade : ''}`.replace(/\s+/g, ' ').trim();
+  const searchUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
+  try {
+    const html = await (await fetch(searchUrl, { headers: { 'accept-language': 'ar' } })).text();
+    const m = html.match(/var ytInitialData = (\{.*?\});<\/script>/s); if (!m) throw 0;
+    const out = [];
+    (function walk(o) {
+      if (!o || typeof o !== 'object' || out.length >= 12) return;
+      if (o.videoRenderer) { const v = o.videoRenderer;
+        out.push({ id: v.videoId, title: (v.title?.runs || []).map(r => r.text).join(''), owner: (v.ownerText?.runs || []).map(r => r.text).join(''),
+          len: v.lengthText?.simpleText || '' }); return; }
+      for (const k in o) walk(o[k]);
+    })(JSON.parse(m[1]));
+    const ien = out.filter(v => /عين|iEN|ien/i.test(v.owner));
+    const list = (ien.length ? ien : out).slice(0, 3).map(v => ({ ...v, url: 'https://www.youtube.com/watch?v=' + v.id }));
+    return { ok: true, list, searchUrl, q };
+  } catch (e) { return { ok: false, list: [], searchUrl, q }; }
+}

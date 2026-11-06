@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "حاضر المعلم",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "مساعد المعلم في حصة Teams: يسحب حصصك من التقويم، ويفتح كل حصة في موعدها ويقفل المايك والكاميرا، ويرصد الحضور، وينهي الحصة آليًا.",
   "permissions": [
     "activeTab",
     "alarms",
     "clipboardWrite",
     "notifications",
+    "power",
     "scripting",
     "storage",
     "tabs"

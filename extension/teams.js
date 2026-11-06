@@ -18,6 +18,7 @@
     more: ['خيارات أخرى', 'More options', 'مزيد من الخيارات'],
     allowMic: ['السماح بالميكروفون', 'Allow mic', 'السماح بإلغاء كتم الصوت', 'Allow to unmute'],
     chat: ['الدردشة', 'Chat'],
+    send: ['إرسال', 'Send'],
     you: ['(أنت)', '(You)'],
     headers: ['مقدمو الاجتماع', 'Presenters', 'الحضور', 'Attendees', 'في هذا الاجتماع', 'In this meeting', 'المنظم', 'Organizer',
       'مدعوون', 'Invited', 'الأيدي المرفوعة', 'Raised hands', 'الآخرون المدعوون', 'Others invited']
@@ -159,23 +160,65 @@
       log('تنبيه نهاية الحصة');
     }
     if (t >= ctx.s.dur) return finish();
-    if (!ctx.lastChat || Date.now() - ctx.lastChat > 60000) { ctx.lastChat = Date.now(); await readChat(); }
+    if (!ctx.lastChat || Date.now() - ctx.lastChat > ((ctx.s.questions || []).length ? 30000 : 60000)) { ctx.lastChat = Date.now(); await readChat(); }
   }
 
   async function readChat() {
     if (!(await click(L.chat))) return; await sleep(1500);
-    const msgs = [...document.querySelectorAll('[data-tid="chat-pane-message"],[data-tid*="chat-pane-item"],[data-tid*="message-body"]')].filter(vis);
-    for (const m of msgs) {
-      const txt = norm(m.innerText).slice(0, 300); if (!txt || ctx.chatSeen.has(txt)) continue;
-      ctx.chatSeen.add(txt);
-      ctx.s.chat.push({ at: hhmm(), txt });
-      if (ctx.chatInit) note('💬 ' + txt.slice(0, 140));
-    }
+    await readChatPane();
     ctx.chatInit = true;
-    await patch({ chat: ctx.s.chat });
     await click(L.people);
   }
 
+  // قراءة الدردشة (المرسل + النص) وربط الإجابات بآخر سؤال
+  async function readChatPane() {
+    const items = [...document.querySelectorAll('[data-tid*="chat-pane-item"],[data-tid="chat-pane-message"]')].filter(vis);
+    for (const it of items) {
+      const body = it.querySelector('[data-tid*="message-body"],[data-tid*="message-content"]') || it;
+      const author = norm((it.querySelector('[data-tid*="author"],[data-tid*="message-author"]') || {}).textContent || '');
+      const txt = norm(body.innerText).slice(0, 300); if (!txt) continue;
+      const key = author + '|' + txt; if (ctx.chatSeen.has(key)) continue; ctx.chatSeen.add(key);
+      if (ctx.mine.has(txt)) continue; // رسائل المساعد نفسه
+      ctx.s.chat.push({ at: hhmm(), who: author, txt });
+      const q = (ctx.s.questions || []).slice(-1)[0];
+      if (ctx.chatInit && q && author && !isTeacher(author) && !q.answers.some(a => a.name === author) && q.answers.length < 10) {
+        q.answers.push({ name: author, txt: txt.slice(0, 120), at: hhmm() });
+        if (q.answers.length <= 3) note(`🏅 ${q.answers.length}. ${author}: ${txt.slice(0, 80)}`);
+      } else if (ctx.chatInit) note('💬 ' + (author ? author + ': ' : '') + txt.slice(0, 140));
+    }
+    await patch({ chat: ctx.s.chat, questions: ctx.s.questions || [] });
+  }
+  // نشر سؤال في دردشة الاجتماع
+  function defaultQuestions(title) {
+    const t = (title || 'الدرس').replace(/\(.*?\)/g, '').trim();
+    return [`ما أهم ما تعلّمته في درس «${t}»؟`, `اكتب مثالًا من عندك على «${t}».`, `ما الفكرة الأصعب في «${t}»؟ ولماذا؟`];
+  }
+  async function postChat(text) {
+    if (!(await click(L.chat))) return false; await sleep(1500);
+    const box = [...document.querySelectorAll('[data-tid="ckeditor"] [contenteditable="true"],[contenteditable="true"][role="textbox"],div[contenteditable="true"]')].filter(vis).pop();
+    if (!box) return false;
+    box.focus(); document.execCommand('insertText', false, text); await sleep(500);
+    const sendBtn = findBtn(L.send);
+    if (sendBtn) sendBtn.click(); else box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    await sleep(800); ctx.mine.add(norm(text));
+    await readChatPane(); // خط أساس قبل الإجابات
+    await click(L.people);
+    return true;
+  }
+  async function ask(textOrNull) {
+    const list = String(ctx.questions || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const pool = list.length ? list : defaultQuestions(ctx.s.lesson);
+    const i = ctx.s.questions?.length || 0;
+    const text = textOrNull || pool[i % pool.length];
+    ctx.s.questions = ctx.s.questions || [];
+    ctx.s.questions.push({ text, at: hhmm(), answers: [] });
+    ctx.chatInit = true;
+    const ok = await postChat('❓ ' + text);
+    if (!ok) { ctx.s.questions.pop(); return { ok: false, err: 'تعذّر الوصول لصندوق الدردشة' }; }
+    await patch({ questions: ctx.s.questions }); log('سؤال: ' + text);
+    ctx.lastChat = Date.now() - 45000; // اقرأ الإجابات قريبًا
+    return { ok: true, text };
+  }
   const sim = (a, b) => { a = norm(a); b = norm(b); if (a === b) return true; const A = a.split(' '), B = b.split(' ');
     return (A[0] === B[0] && A[1] && B[1] && A[1] === B[1]) || a.includes(b) || b.includes(a); };
   function compute() {
@@ -234,6 +277,7 @@
       else if (m.c === 'status') { const ppl = (readPeople() || []).filter(p => !p.self && !isTeacher(p.name)); reply({ ok: true, people: ppl.map(p => p.name), hands: [...ctx.handsNow] }); }
       else if (m.c === 'video') { if (ctx.video) send({ t: 'video', url: ctx.video }); reply({ ok: !!ctx.video, err: ctx.video ? '' : 'لا يوجد رابط مقطع' }); }
       else if (m.c === 'end') { await finish(); reply({ ok: true }); }
+      else if (m.c === 'ask') reply(await ask(m.text || null));
       else reply({ ok: false });
     })();
     return true;
@@ -242,7 +286,7 @@
   async function init() {
     let r; try { r = await send({ t: 'whoami' }); } catch (e) { return; }
     if (!r) return;
-    ctx = { ...r, handsNow: new Set(), chatSeen: new Set(), chatInit: false };
+    ctx = { ...r, handsNow: new Set(), chatSeen: new Set(), chatInit: false, mine: new Set() };
     Object.assign(seen, r.s.seen || {});
     if (['done', 'stopped'].includes(ctx.s.phase)) return;
     setBadge('بدأ التشغيل');
