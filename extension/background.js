@@ -34,6 +34,7 @@ const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0))
 function ensureAlarm() { chrome.alarms.create('tick', { periodInMinutes: 1 }); }
 chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); startSync(); });
 chrome.runtime.onStartup.addListener(() => { ensureAlarm(); startSync(); });
+chrome.storage.local.get('justUpdated').then(o => { if (o.justUpdated) { note('✅ حُدِّث حاضر المعلم إلى ' + o.justUpdated + ' تلقائيًا'); chrome.storage.local.remove('justUpdated'); ensureAlarm(); } });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tick') tick(); });
 
 function note(message, title = 'حاضر المعلم') {
@@ -51,6 +52,15 @@ async function tick() {
     try { await chrome.tabs.remove(sync.tabId); } catch (e) {}
     await set('sync', { ...sync, tabId: null, lastErr: 'انتهت مهلة السحب' });
   }
+  // إعادة تحميل ذاتية إذا حدّث «مُحدِّث حاضر المعلم» الملفات على القرص (ولا توجد حصة جارية)
+  try {
+    const disk = await (await fetch(chrome.runtime.getURL('manifest.json') + '?t=' + Date.now(), { cache: 'no-store' })).json();
+    const live = Object.values(sessions).some(x => x.day === day && ['join', 'lock', 'live'].includes(x.phase));
+    if (disk.version && disk.version !== chrome.runtime.getManifest().version && !live) {
+      await chrome.storage.local.set({ justUpdated: disk.version });
+      chrome.runtime.reload(); return;
+    }
+  } catch (e) {}
   // فحص التحديث كل 6 ساعات
   const up = await get('update');
   if (!up.checked || Date.now() - up.checked > 6 * 3600000) checkUpdate();
@@ -252,7 +262,7 @@ async function checkUpdate(manual) {
     await set('update', info);
     if (info.newer && old.version !== v.version) {
       chrome.notifications.create('update', { type: 'basic', iconUrl: 'icons/128.png', title: 'حاضر المعلم — تحديث جديد ' + v.version,
-        message: (v.notes || 'يوجد إصدار جديد') + ' – اضغط للتنزيل', buttons: [{ title: '⬇️ تنزيل التحديث' }], priority: 2 });
+        message: (v.notes || 'يوجد إصدار جديد') + ' — يُثبَّت تلقائيًا صباحًا، أو شغّل «Hadir Update» من سطح المكتب الآن', buttons: [{ title: 'طريقة التحديث' }], priority: 1 });
     }
     return { ok: true, ...info, current: cur };
   } catch (e) {
@@ -285,11 +295,11 @@ async function openWhatsApp(day) {
 }
 chrome.notifications.onButtonClicked.addListener(async (id) => {
   if (id.startsWith('summary-')) openWhatsApp(id.slice(8));
-  else if (id === 'update') { const u = await get('update'); if (u.url) chrome.tabs.create({ url: u.url }); }
+  else if (id === 'update') chrome.tabs.create({ url: 'https://hadir.wasl.uk/install' });
 });
 chrome.notifications.onClicked.addListener(async (id) => {
   if (id.startsWith('summary-')) openWhatsApp(id.slice(8));
-  else if (id === 'update') { const u = await get('update'); if (u.url) chrome.tabs.create({ url: u.url }); }
+  else if (id === 'update') chrome.tabs.create({ url: 'https://hadir.wasl.uk/install' });
 });
 chrome.runtime.onMessage.addListener((m, _, reply) => {
   if (m.t === 'waSummary') { openWhatsApp(m.day).then(() => reply(true)); return true; }

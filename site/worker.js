@@ -2,7 +2,7 @@
 const RAW = 'https://raw.githubusercontent.com/makh1551/hadir-almoalem/main/';
 const SITE = 'https://hadir.wasl.uk';
 const MAP = { '/': 'site/index.html', '/guide': 'site/guide/index.html', '/faq': 'site/faq/index.html',
-  '/feedback': 'site/feedback/index.html', '/feedback/results': 'site/feedback/results.html' };
+  '/feedback': 'site/feedback/index.html', '/install': 'site/install/index.html', '/feedback/results': 'site/feedback/results.html' };
 const TYPES = { html: 'text/html; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', css: 'text/css', js: 'text/javascript' };
 const TOKEN = /^[a-z0-9]{24,40}$/;
 const json = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
@@ -29,6 +29,11 @@ export default {
     if (p === '/hadir-almoalem.zip' || p === '/download') {
       const r = await raw('hadir-almoalem.zip'); if (!r.ok) return new Response('غير متاح', { status: 502 });
       return new Response(r.body, { headers: { 'content-type': 'application/zip', 'content-disposition': 'attachment; filename="hadir-almoalem.zip"', 'cache-control': 'no-cache' } });
+    }
+
+    if (p === '/install.bat' || p === '/update.bat') {
+      const r = await raw('site/install.bat'); if (!r.ok) return new Response('غير متاح', { status: 502 });
+      return new Response(r.body, { headers: { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="hadir-install.bat"', 'cache-control': 'no-cache' } });
     }
 
     // التقارير على الجوال

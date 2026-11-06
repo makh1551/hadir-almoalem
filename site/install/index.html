@@ -1,0 +1,43 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>تثبيت حاضر المعلم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1514;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.8 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+.wrap{max-width:920px;margin:auto;padding:0 16px}
+header{background:linear-gradient(135deg,#0f766e,#115e59);color:#fff;padding:36px 0 44px}
+header a{color:#fff;opacity:.85;text-decoration:none;font-size:14px}
+h1{font-size:clamp(26px,5vw,36px);margin:6px 0 4px}header p{margin:0;opacity:.9}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:-22px 0 20px}
+nav.toc a{background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:6px 14px;color:var(--tx);text-decoration:none;font-size:14px}
+section{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:16px;scroll-margin-top:12px}
+.step{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+@media (max-width:720px){.step{grid-template-columns:1fr}}
+.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--p);color:#fff;font-weight:700;margin-inline-end:8px}
+h2{font-size:20px;margin:0 0 10px;display:flex;align-items:center}
+ol,ul{margin:0;padding-inline-start:22px}li{margin:4px 0}
+img{width:100%;border-radius:12px;border:1px solid var(--bd);box-shadow:0 4px 16px #0001;background:#fff}
+code{background:#0f766e18;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+.tip{background:#0f766e12;border-inline-start:4px solid var(--p2);padding:8px 12px;border-radius:8px;margin-top:12px;font-size:15px}
+.btn{display:inline-block;background:var(--p);color:#fff;font-weight:700;padding:10px 20px;border-radius:12px;text-decoration:none}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:20px 0 40px}
+</style>
+<style>details{border-bottom:1px solid var(--bd);padding:10px 0}details:last-child{border:0}summary{cursor:pointer;font-weight:600}
+label{display:block;margin:12px 0 4px;font-weight:600}input,textarea,select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx)}
+textarea{min-height:80px}.stars{display:flex;gap:6px;flex-direction:row-reverse;justify-content:flex-end}.stars button{font-size:28px;background:none;border:0;cursor:pointer;color:#cbd5d1;padding:0}.stars button.on{color:#f59e0b}
+.chk{display:flex;flex-wrap:wrap;gap:8px}.chk label{display:flex;gap:6px;align-items:center;font-weight:normal;margin:0;border:1px solid var(--bd);border-radius:999px;padding:4px 12px}.chk input{width:auto}
+button.btn{border:0;cursor:pointer;font:inherit;margin-top:14px}</style></head><body>
+<header><div class="wrap"><a href="/">← حاضر المعلم</a><h1>⚡ التثبيت والتحديث</h1><p>تثبيت مرة واحدة، وتحديث تلقائي بعدها.</p></div></header>
+<main class="wrap" style="margin-top:16px"><section><h2 style="margin-top:0">⚡ التثبيت المستقر (موصى به)</h2>
+<ol>
+<li>نزّل المثبّت: <a class="btn" href="/install.bat" style="display:inline-block;background:var(--p);color:#fff;padding:8px 18px;border-radius:12px;text-decoration:none;font-weight:700">⬇️ مثبّت حاضر المعلم</a></li>
+<li>شغّله (إن ظهر تحذير Windows: «مزيد من المعلومات» ← «تشغيل على أي حال»). ينزّل الإضافة في مجلد ثابت وينسخ مساره.</li>
+<li>في Chrome: <code>chrome://extensions</code> ← فعّل «وضع مطور البرامج» ← «تحميل إضافة تم فك حزمتها» ← الصق المسار ← «اختيار مجلد». <b>مرة واحدة فقط.</b></li>
+</ol>
+<p><b>بعدها كل شيء تلقائي:</b> يُحدّث المثبّت الملفات كل يوم 6 ص و1 م، وتعيد الإضافة تحميل نفسها خارج وقت الحصص، دون فقد إعداداتك أو قوائم طلابك. ولتحديث فوري شغّل «Hadir Update» من سطح المكتب.</p></section>
+<section><h2 style="margin-top:0">لماذا ظهر «ملف البيان مفقود»؟</h2>
+<p>يحدث عند اختيار مجلد لا يحتوي <code>manifest.json</code> مباشرة (مثل مجلد فيه مجلد آخر). المثبّت يحل ذلك نهائيًا بمسار ثابت.</p></section>
+<section><h2 style="margin-top:0">انتقلت من تثبيت سابق؟</h2>
+<p>قبل التبديل: من الإضافة القديمة «الإعدادات» ← «تصدير». ثبّت الجديدة، ثم «استيراد» الملف، واحذف القديمة. من الإصدار 2.0 يبقى معرّف الإضافة ثابتًا فلا تضيع بياناتك بعد اليوم.</p></section></main>
+<footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer></body></html>

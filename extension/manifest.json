@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "حاضر المعلم",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "مساعد المعلم في حصة Teams: يسحب حصصك من التقويم، ويفتح كل حصة في موعدها ويقفل المايك والكاميرا، ويرصد الحضور، وينهي الحصة آليًا.",
   "permissions": [
     "activeTab",
@@ -85,5 +85,6 @@
       "description": "اعرض تبويب المقطع للطلاب في Teams",
       "global": true
     }
-  }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmxcu7bQgW3Q2kaQNXEbG0OQ12JuK5jZ8z4fPT03kNdoDjNGDwl6SN6kDln+I82qJheQQPW0B6+e+pf7rkOlQLdKg3Eg+4hmDQgswp19y29/GeIFUrkGEUJUOM3sHNXvO3APAXMC43gXp0Sd4Ngv3qNs0ni0vTMhhoJ1XMgP3aWwXMAY2sxnOlHZE5ihY6RnnBERsHEWU7P3V8LEWC9skrOZuzxibevjY7yJmHBMBJIdvwWYE3wt+5aEdGSAtBAeAPT6BqPP77eQ/t3i2rK29sYsvmQGVDtOBjezV4pjObcV4FuqMux9k4IaxzRm0/g3ncvYJNeoKMxru9QdpAwuLdQIDAQAB"
 }
