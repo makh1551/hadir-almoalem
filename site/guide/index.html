@@ -1,0 +1,88 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دليل حاضر المعلم</title>
+<meta name="description" content="دليل مصوّر لتثبيت «حاضر المعلم» وإعداده واستخدامه في حصص Teams.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1514;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.8 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+.wrap{max-width:920px;margin:auto;padding:0 16px}
+header{background:linear-gradient(135deg,#0f766e,#115e59);color:#fff;padding:36px 0 44px}
+header a{color:#fff;opacity:.85;text-decoration:none;font-size:14px}
+h1{font-size:clamp(26px,5vw,36px);margin:6px 0 4px}header p{margin:0;opacity:.9}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:-22px 0 20px}
+nav.toc a{background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:6px 14px;color:var(--tx);text-decoration:none;font-size:14px}
+section{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:16px;scroll-margin-top:12px}
+.step{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+@media (max-width:720px){.step{grid-template-columns:1fr}}
+.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--p);color:#fff;font-weight:700;margin-inline-end:8px}
+h2{font-size:20px;margin:0 0 10px;display:flex;align-items:center}
+ol,ul{margin:0;padding-inline-start:22px}li{margin:4px 0}
+img{width:100%;border-radius:12px;border:1px solid var(--bd);box-shadow:0 4px 16px #0001;background:#fff}
+code{background:#0f766e18;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+.tip{background:#0f766e12;border-inline-start:4px solid var(--p2);padding:8px 12px;border-radius:8px;margin-top:12px;font-size:15px}
+.btn{display:inline-block;background:var(--p);color:#fff;font-weight:700;padding:10px 20px;border-radius:12px;text-decoration:none}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:20px 0 40px}
+</style></head><body>
+<header><div class="wrap"><a href="/">← حاضر المعلم</a><h1>📘 الدليل المصوّر</h1><p>من التثبيت إلى أول حصة في خمس خطوات.</p></div></header>
+<main class="wrap">
+<nav class="toc"><a href="#s1">1. التثبيت</a><a href="#s2">2. الإعدادات</a><a href="#s3">3. الحصص</a><a href="#s4">4. الطلاب</a><a href="#s5">5. يوم الحصة</a><a href="#s6">6. التقارير</a></nav>
+
+<section id="s1"><h2><span class="n">1</span>التثبيت (مرة واحدة)</h2>
+<ol>
+<li>نزّل الإضافة: <a class="btn" href="/hadir-almoalem.zip">⬇️ تنزيل</a></li>
+<li>فك الضغط في مجلد ثابت، مثل «المستندات/حاضر المعلم». لا تحذفه بعد التثبيت.</li>
+<li>افتح في Chrome: <code>chrome://extensions</code></li>
+<li>فعّل «وضع المطوّر» أعلى الصفحة.</li>
+<li>اضغط «تحميل إضافة غير مُعبأة» واختر المجلد.</li>
+<li>من أيقونة القطعة 🧩 بجانب شريط العنوان ثبّت «حاضر المعلم».</li>
+</ol>
+<div class="tip">سجّل الدخول في Teams وOutlook على الويب بحسابك في Chrome نفسه.</div></section>
+
+<section id="s2"><div class="step"><div><h2><span class="n">2</span>الإعدادات</h2>
+<ul>
+<li><b>اسمك كما يظهر في Teams:</b> به تتعرف الإضافة على اجتماعاتك وعلى دخولك للحصة.</li>
+<li><b>فتح الحصة قبل:</b> دقيقة واحدة تكفي لتجهيز القفل.</li>
+<li><b>الضمانة:</b> 10 دقائق. إن لم تدخل خلالها أو غبت أكثر منها يتوقف المساعد ويغادر.</li>
+<li><b>تنبيه قبل النهاية</b> و<b>عند نهاية الحصة:</b> إنهاء الاجتماع للجميع أو مغادرة المساعد فقط.</li>
+<li><b>جوالك:</b> لاستقبال ملخص اليوم على واتساب.</li>
+</ul></div><img src="/g/5-settings.webp" alt="شاشة الإعدادات" loading="lazy"></div></section>
+
+<section id="s3"><div class="step"><div><h2><span class="n">3</span>الحصص</h2>
+<ul>
+<li>تُسحب حصصك آليًا من تقويم Outlook (ومعها دعوات البريد) مرتين يوميًا، ولأسبوعين.</li>
+<li>للسحب الآن: «اليوم» ← «🔄 اسحب حصصي من التقويم».</li>
+<li>من «الحصص» اضغط «تعديل» على أي حصة وسمها <b>«حدّد الصف»</b>، واكتب الصف مرة واحدة؛ تتعلّمه الإضافة لكل حصص الفريق نفسه.</li>
+<li>الحصة الموسومة <b>«بلا مقطع»</b>: أضف رابط مقطع الدرس من التحضير.</li>
+</ul></div><img src="/g/2-classes.webp" alt="شاشة الحصص" loading="lazy"></div></section>
+
+<section id="s4"><div class="step"><div><h2><span class="n">4</span>أسماء الطلاب (مرة لكل صف)</h2>
+<ol>
+<li>افتح صفحة أعضاء فريق الفصل في Teams (الفريق ← … ← إدارة الفريق ← الأعضاء)، أو قائمة الفصل في مدرستي.</li>
+<li>مرّر القائمة حتى تظهر كل الأسماء.</li>
+<li>من الإضافة: «الطلاب» ← اكتب الصف ← «اسحب من الصفحة المفتوحة».</li>
+<li>راجع الأسماء واحذف غير الطلاب، ثم «حفظ قائمة الصف».</li>
+</ol>
+<div class="tip">بعدها يظهر الغائب والمتأخر بالاسم في تقرير كل حصة.</div></div><img src="/g/3-students.webp" alt="شاشة الطلاب" loading="lazy"></div></section>
+
+<section id="s5"><div class="step"><div><h2><span class="n">5</span>يوم الحصة</h2>
+<ul>
+<li>اترك Chrome مفتوحًا. قبل الحصة بدقيقة تفتحها الإضافة وتكتم الجميع وتعطّل المايك والكاميرا للطلاب، ثم يصلك: <b>«ادخل الآن»</b>.</li>
+<li>ادخل من جوالك أو التابلت. إن دخلت بنفس الحساب اضغط <b>«أنا داخل»</b>.</li>
+<li><b>المقطع:</b> مفتوح في تبويب جاهز؛ من Teams اضغط «مشاركة» واختر تبويبه مع الصوت.</li>
+<li>تصلك تنبيهات رفع الأيدي ورسائل الدردشة وأنت تشرح.</li>
+<li>أوامر سريعة: كتم الجميع، إعادة القفل، الحضور الآن، اسمح لطالب بالحديث، إنهاء.</li>
+<li>قبل النهاية بدقيقتين تنبيه، ثم يُغلق الاجتماع آليًا.</li>
+</ul>
+<div class="tip">🧪 جرّب أولًا: «اليوم» ← «حصة تجريبية الآن» مع اجتماع تجريبي تدخله من جوالك كطالب.</div></div><img src="/g/1-today.webp" alt="شاشة اليوم" loading="lazy"></div></section>
+
+<section id="s6"><div class="step"><div><h2><span class="n">6</span>التقارير</h2>
+<ul>
+<li>لكل حصة: حاضر، متأخر، خرج مبكرًا، غائب، ورفع الأيدي والدردشة.</li>
+<li><b>📋 للرصد السريع:</b> ينسخ أسماء الغائبين ويفتح مدرستي؛ في «رصد الحضور السريع» اختر «يوجد غياب» والصق.</li>
+<li><b>📲 ملخص اليوم على واتساب</b>، أو <b>تنزيل CSV</b>.</li>
+</ul></div><img src="/g/4-reports.webp" alt="شاشة التقارير" loading="lazy"></div></section>
+</main>
+<footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer>
+</body></html>
