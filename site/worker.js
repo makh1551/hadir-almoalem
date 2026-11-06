@@ -1,0 +1,74 @@
+// hadir.wasl.uk — صفحة «حاضر المعلم» وتنزيلها وملف التحديث (المصدر: GitHub makh1551/hadir-almoalem)
+const RAW = 'https://raw.githubusercontent.com/makh1551/hadir-almoalem/main/';
+const SITE = 'https://hadir.wasl.uk';
+
+const PAGE = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>حاضر المعلم</title>
+<meta name="description" content="إضافة Chrome تساعد المعلم في حصص Teams: تفتح الحصة وتقفل مايكات الطلاب وكاميراتهم قبل دخوله، وترصد الحضور طوال الحصة.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1514;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.75 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+.wrap{max-width:880px;margin:auto;padding:0 16px}
+header{background:linear-gradient(135deg,#0f766e,#115e59);color:#fff;padding:56px 0 64px}
+h1{font-size:clamp(30px,6vw,44px);margin:0 0 8px}header p{opacity:.9;margin:0 0 24px;max-width:620px}
+.btn{display:inline-block;background:#fff;color:#0f766e;font-weight:700;padding:12px 22px;border-radius:12px;text-decoration:none}
+.btn.o{background:transparent;color:#fff;border:1.5px solid #ffffff88;margin-inline-start:8px}
+.ver{font-size:13px;opacity:.8;margin-top:12px}
+main{margin-top:-32px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.f b{display:block;color:var(--p2);margin-bottom:2px}.f{font-size:15px;color:var(--mut)}.f b{font-size:16px}
+h2{font-size:20px;margin:0 0 12px}ol{margin:0;padding-inline-start:20px}li{margin:4px 0}
+code{background:#0f766e18;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:24px 0 40px}
+</style></head><body>
+<header><div class="wrap"><h1>🎓 حاضر المعلم</h1>
+<p>مساعدك في حصص Teams الافتراضية: يسحب حصصك من التقويم، ويفتح كل حصة في موعدها ويقفل مايكات الطلاب وكاميراتهم قبل دخولك، ويبقى معك طوال الحصة يرصد الحضور، ثم ينهيها آليًا.</p>
+<a class="btn" href="/hadir-almoalem.zip">⬇️ تنزيل الإضافة</a><a class="btn o" href="#install">طريقة التثبيت</a>
+<div class="ver" id="ver"></div></div></header>
+<main class="wrap">
+<div class="card"><div class="grid">
+<div class="f"><b>📅 سحب الحصص</b>من تقويم Outlook ودعوات البريد، مرتين يوميًا.</div>
+<div class="f"><b>🔒 قفل قبل دخولك</b>كتم الجميع وتعطيل المايك والكاميرا للطلاب.</div>
+<div class="f"><b>🎬 مقطع الدرس</b>يُجهَّز من التحضير، ويُنبَّه إن لم يوجد.</div>
+<div class="f"><b>👥 رصد الحضور</b>حاضر، متأخر، خرج مبكرًا، غائب — بالاسم.</div>
+<div class="f"><b>✋ رفع اليد والدردشة</b>تنبيه فوري وأنت تشرح.</div>
+<div class="f"><b>⏰ إنهاء آلي</b>تنبيه قبل النهاية ثم إغلاق الاجتماع.</div>
+<div class="f"><b>📋 الرصد السريع</b>نسخ الغائبين للرصد في مدرستي.</div>
+<div class="f"><b>📲 ملخص واتساب</b>ملخص اليوم بعد آخر حصة.</div>
+</div></div>
+<div class="card" id="install"><h2>طريقة التثبيت</h2><ol>
+<li>نزّل الملف وفك ضغطه في مجلد ثابت.</li>
+<li>افتح <code>chrome://extensions</code> وفعّل «وضع المطوّر».</li>
+<li>اضغط «تحميل إضافة غير مُعبأة» واختر المجلد.</li>
+<li>من «الإعدادات» اكتب اسمك كما يظهر في Teams، ثم «اسحب حصصي من التقويم».</li>
+<li>جرّب أولًا «حصة تجريبية الآن» في اجتماع تجريبي.</li></ol>
+<p style="color:var(--mut);font-size:14px;margin:12px 0 0">التحديث: تنبّهك الإضافة بكل إصدار جديد. نزّله وفك ضغطه فوق المجلد نفسه ثم اضغط ↻ في صفحة الإضافات.</p></div>
+<div class="card" style="font-size:14px;color:var(--mut)">المساعد يعمل معك لا بدلًا منك: إن لم تدخل الحصة خلال 10 دقائق أو غبت أكثر منها، يتوقف ويغادر.</div>
+</main>
+<footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer>
+<script>fetch('/version.json').then(r=>r.json()).then(v=>{document.getElementById('ver').textContent='الإصدار '+v.version+' — '+(v.notes||'')}).catch(()=>{})</script>
+</body></html>`;
+
+export default {
+  async fetch(req) {
+    const u = new URL(req.url);
+    const p = u.pathname.replace(/\/+$/, '') || '/';
+    if (p === '/') return new Response(PAGE, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } });
+    if (p === '/version.json') {
+      const r = await fetch(RAW + 'version.json', { cf: { cacheTtl: 120 } });
+      if (!r.ok) return new Response('{}', { status: 502, headers: { 'content-type': 'application/json' } });
+      const v = await r.json(); v.url = SITE + '/hadir-almoalem.zip';
+      return new Response(JSON.stringify(v), { headers: { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'cache-control': 'no-cache' } });
+    }
+    if (p === '/hadir-almoalem.zip' || p === '/download') {
+      const r = await fetch(RAW + 'hadir-almoalem.zip', { cf: { cacheTtl: 120 } });
+      if (!r.ok) return new Response('غير متاح', { status: 502 });
+      return new Response(r.body, { headers: { 'content-type': 'application/zip', 'content-disposition': 'attachment; filename="hadir-almoalem.zip"', 'cache-control': 'no-cache' } });
+    }
+    return Response.redirect(SITE + '/', 302);
+  }
+};
