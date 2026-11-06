@@ -246,7 +246,8 @@ async function vStudents() {
   const names = [...new Set([...classes.map(c => c.cls), ...Object.keys(rosters)])].filter(Boolean);
   const auto = await get('autoRosters');
   let h = `<div class="card ok">✨ لا تحتاج شيئًا هنا: تتعلّم الإضافة أسماء طلاب كل صف من الحصص نفسها. السحب أدناه اختياري، ليظهر الغائبون بالاسم من أول حصة.</div>
-  <details class="card"><summary><b>سحب أسماء الطلاب يدويًا (اختياري)</b></summary>
+  <details class="card" id="pullBox"><summary><b>سحب أسماء الطلاب يدويًا (اختياري)</b></summary>
+    <div class="mut">في مدرستي: اختر «الفصل» ثم «بحث» حتى يظهر جدول الطلاب، ثم اسحب.</div>
     <div class="mut">افتح صفحة الفصل التي فيها أسماء الطلاب (أعضاء فريق الفصل في Teams، أو قائمة الفصل في مدرستي)، ثم اضغط «اسحب».</div>
     <label>الصف</label><input id="rCls" list="clsList" placeholder="السادس أ"><datalist id="clsList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><span id="pullMsg" class="mut"></span></div>
@@ -258,6 +259,20 @@ async function vStudents() {
   }
   $('#main').innerHTML = h;
   $('#pull').onclick = pullNames;
+  // افتح قسم السحب تلقائيًا على صفحات مدرستي/Teams، واقترح اسم الفصل من الصفحة
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (/madrasati\.sa|teams\.(microsoft|cloud)/.test(tab?.url || '')) {
+      $('#pullBox').open = true;
+      const [{ result } = {}] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
+        const sels = [...document.querySelectorAll('select')];
+        const lab = el => (el.closest('div')?.parentElement?.innerText || '');
+        const s = sels.find(x => /الفصل/.test(lab(x)) && x.selectedIndex > 0) || sels.find(x => x.selectedIndex > 0 && /أ|ب|ج|\d/.test(x.options[x.selectedIndex]?.text || ''));
+        return s ? s.options[s.selectedIndex].text.trim() : '';
+      } });
+      if (result && !$('#rCls').value) $('#rCls').value = result;
+    }
+  } catch (e) {}
   $('#rSave').onclick = async () => {
     const cls = $('#rCls').value.trim(); if (!cls) return alert('اكتب اسم الصف');
     const list = [...new Set($('#rNames').value.split('\n').map(s => s.trim()).filter(Boolean))];
