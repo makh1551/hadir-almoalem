@@ -141,12 +141,14 @@ async function cmd(key, c) {
 
 // ===== الحصص =====
 async function vClasses() {
-  const classes = await get('classes');
+  const classes = await get('classes'), rosters = await get('rosters'), autoR = await get('autoRosters');
+  const clsNames = [...new Set([...Object.keys(rosters || {}), ...Object.keys(autoR || {}), ...classes.map(c => c.cls)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ar'));
+  const clsOpts = clsNames.map(n => `<option value="${esc(n)}">${esc(n)}${(rosters || {})[n] ? ' · ' + rosters[n].length + ' طالب' : ''}</option>`).join('');
   let h = `<div class="card"><b>إضافة حصة</b><div class="cls-grid" style="margin-top:6px">
     <div><label>اليوم</label><select id="cDay">${DAYS.map((d, i) => `<option value="${i}">${d}</option>`).join('')}</select></div>
     <div><label>البداية</label><input id="cStart" type="time" value="07:45"></div>
     <div><label>المدة (د)</label><input id="cDur" type="number" value="39"></div>
-    <div><label>الصف</label><input id="cCls" placeholder="السادس أ"></div>
+    <div><label>الصف</label><select id="cClsSel"><option value="">— اختر الصف —</option>${clsOpts}<option value="__new">➕ صف جديد…</option></select><input id="cCls" placeholder="اكتب اسم الصف" style="display:none;margin-top:4px"></div>
     <div class="full"><label>الدرس</label><input id="cLesson"></div>
     <div class="full"><label>رابط اجتماع Teams</label><input id="cLink" placeholder="https://teams.microsoft.com/..."></div>
     <div class="full"><label>رابط مقطع الدرس (من التحضير)</label><div class="row"><input id="cVideo" placeholder="https://..." style="flex:1"><button class="btn s" id="cSug">🔎 اقترح من عين</button></div><div id="sugOut"></div></div>
@@ -164,6 +166,9 @@ async function vClasses() {
   }
   $('#main').innerHTML = h;
   let editId = null;
+  const setCls = v => { const sel = $('#cClsSel'), inp = $('#cCls'); inp.value = v || '';
+    if (!v) { sel.value = ''; inp.style.display = 'none'; } else if (clsNames.includes(v)) { sel.value = v; inp.style.display = 'none'; } else { sel.value = '__new'; inp.style.display = ''; } };
+  $('#cClsSel').onchange = e => { const v = e.target.value; if (v === '__new') { $('#cCls').value = ''; $('#cCls').style.display = ''; $('#cCls').focus(); } else { $('#cCls').value = v; $('#cCls').style.display = 'none'; } };
   $('#cAdd').onclick = async () => {
     const list = await get('classes');
     const old = list.find(x => x.id === editId) || {};
@@ -183,7 +188,7 @@ async function vClasses() {
   });
   document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const c = classes.find(x => x.id === b.dataset.edit); editId = c.id;
-    $('#cDay').value = c.day ?? new Date((c.date || '2026-01-01') + 'T12:00').getDay(); $('#cStart').value = c.start; $('#cDur').value = c.dur; $('#cCls').value = c.cls;
+    $('#cDay').value = c.day ?? new Date((c.date || '2026-01-01') + 'T12:00').getDay(); $('#cStart').value = c.start; $('#cDur').value = c.dur; setCls(c.cls);
     $('#cLesson').value = c.lesson || ''; $('#cLink').value = c.link || ''; $('#cVideo').value = c.video || ''; $('#cQs').value = c.questions || '';
     $('#cAdd').textContent = 'حفظ التعديل'; window.scrollTo(0, 0);
   });
