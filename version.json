@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.8.1",
   "url": "https://hadir.wasl.uk/hadir-almoalem.zip",
-  "notes": "المقطع يعمل تلقائيًا عند بداية الحصة، ويُعرض للطلاب في Teams بضغطة Ctrl+Shift+1"
+  "notes": "إصلاح الضغط على «الانضمام الآن» في واجهة Teams الخفيفة"
 }

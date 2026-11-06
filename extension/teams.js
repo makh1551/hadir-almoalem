@@ -45,7 +45,16 @@
     }
     return null;
   }
-  async function click(list, root) { const b = findBtn(list, root); if (b) { b.click(); await sleep(900); return true; } return false; }
+  // ضغط كامل يحاكي المؤشر (بعض واجهات Teams لا تستجيب لـ click() وحده)
+  function press(el) {
+    const r = el.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+    el.scrollIntoView?.({ block: 'center' });
+    for (const t of ['pointerover', 'pointerenter', 'mouseover', 'pointerdown', 'mousedown']) el.dispatchEvent(new (t.startsWith('pointer') ? PointerEvent : MouseEvent)(t, o));
+    el.focus?.();
+    for (const t of ['pointerup', 'mouseup']) el.dispatchEvent(new (t.startsWith('pointer') ? PointerEvent : MouseEvent)(t, o));
+    el.click();
+  }
+  async function click(list, root) { const b = findBtn(list, root); if (b) { press(b); await sleep(900); return true; } return false; }
   const dialog = () => document.querySelector('[role="alertdialog"],[role="dialog"]') || document;
 
   let ctx = null;
@@ -102,7 +111,15 @@
   // 1) الدخول
   async function joinStep() {
     if (inMeeting()) { await patch({ phase: 'lock' }); log('دخلت الاجتماع'); return; }
-    (await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV)) || (await click(L.joinNow));
+    ctx.joinTries = (ctx.joinTries || 0) + 1;
+    if ((await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV))) return;
+    const jb = findBtn(L.joinNow);
+    if (jb) {
+      if (jb.disabled || jb.getAttribute('aria-disabled') === 'true') { log('زر الانضمام معطّل — بانتظار الصفحة'); return; }
+      press(jb); await sleep(1500);
+      if (findBtn(L.joinNow) && ctx.joinTries % 2 === 0) { jb.focus(); for (const t of ['keydown', 'keypress', 'keyup']) jb.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })); }
+      if (ctx.joinTries === 8) note(`لم أستطع الضغط على «الانضمام الآن» في ${ctx.s.cls} — اضغطه بنفسك مرة واحدة وسأكمل.`);
+    }
   }
 
   // قفل بديل من «خيارات الاجتماع» (يعمل حتى لو لم يدخل طلاب بعد)
