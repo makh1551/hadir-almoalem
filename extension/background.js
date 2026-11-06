@@ -18,7 +18,7 @@ const today = () => ymd(new Date());
 const mins = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + m; };
 const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 const hhmm = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
-const UPDATE_URL = 'https://raw.githubusercontent.com/makh1551/hadir-almoalem/main/version.json';
+const UPDATE_URL = 'https://hadir.wasl.uk/version.json';
 const threadOf = link => { try { const m = decodeURIComponent(decodeURIComponent(link || '')).match(/19:[^@\/\s"]+@thread\.[a-z0-9]+/i); return m ? m[0] : ''; } catch (e) { return ''; } };
 const GRADE = /(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)(?:\s*الابتدائي)?\s*[\/\-]?\s*(أ|ا|ب|ج|د|هـ|\d)?/;
 function guessCls(title, link, clsMap, rosterKeys) {

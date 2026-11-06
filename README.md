@@ -2,7 +2,9 @@
 
 إضافة Chrome تساعد المعلم في حصص Teams الافتراضية: تسحب حصصه من تقويم Outlook، وتفتح كل حصة في موعدها وتقفل مايكات الطلاب وكاميراتهم قبل دخوله، وتبقى معه طوال الحصة ترصد الحضور ورفع الأيدي والدردشة، ثم تنبّه قبل النهاية وتغلق الاجتماع آليًا.
 
-**التنزيل:** [hadir-almoalem.zip](https://github.com/makh1551/hadir-almoalem/raw/main/hadir-almoalem.zip) — فك الضغط، ثم في `chrome://extensions` فعّل «وضع المطوّر» واختر «تحميل إضافة غير مُعبأة».
+**الموقع:** https://hadir.wasl.uk
+
+**التنزيل:** [hadir-almoalem.zip](https://hadir.wasl.uk/hadir-almoalem.zip) — فك الضغط، ثم في `chrome://extensions` فعّل «وضع المطوّر» واختر «تحميل إضافة غير مُعبأة».
 
 ## نشر تحديث
 1. عدّل الملفات في `extension/` وارفع `version` في `extension/manifest.json`.
