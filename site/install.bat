@@ -1,13 +1,12 @@
 @echo off
-chcp 65001 >nul
-title حاضر المعلم - تثبيت وتحديث
+title Hadir Almoalem - Install / Update
 set "DIR=%LOCALAPPDATA%\HadirAlmoalem"
 if not exist "%DIR%" mkdir "%DIR%"
 echo.
-echo  جار تنزيل آخر إصدار من hadir.wasl.uk ...
+echo  Downloading the latest version from hadir.wasl.uk ...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol='Tls12'; $z=Join-Path $env:TEMP 'hadir.zip'; $t=Join-Path $env:TEMP 'hadir-new'; Invoke-WebRequest 'https://hadir.wasl.uk/hadir-almoalem.zip' -OutFile $z -UseBasicParsing; if(Test-Path $t){Remove-Item $t -Recurse -Force}; Expand-Archive $z $t -Force; if(-not (Test-Path (Join-Path $t 'manifest.json'))){throw 'bad package'}; Remove-Item $z"
 if errorlevel 1 (
-  echo  تعذر التنزيل - تأكد من الإنترنت ثم أعد المحاولة.
+  echo  Download failed - check the internet and try again.
   if /i not "%~1"=="silent" pause
   exit /b 1
 )
@@ -21,16 +20,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$u=Join-Path $env:LOCALA
 echo %DIR%\extension| clip
 echo.
 echo  ===========================================================
-echo   تم بنجاح. مجلد الإضافة الثابت:
+echo   DONE. Extension folder:
 echo   %DIR%\extension
-echo   (المسار منسوخ - الصقه بـ Ctrl+V)
+echo   (path copied - paste it with Ctrl+V)
 echo.
-echo   أول مرة فقط:
-echo   1- في صفحة الإضافات فعّل «وضع مطور البرامج»
-echo   2- «تحميل إضافة تم فك حزمتها» ثم الصق المسار في شريط العنوان واضغط Enter ثم «اختيار مجلد»
+echo   First time only, in chrome://extensions :
+echo   1- Turn on Developer mode
+echo   2- Load unpacked - paste the path (Ctrl+V) - Enter - Select Folder
 echo.
-echo   بعدها: التحديث تلقائي كل يوم 6 ص و 1 م
-echo   ولتحديث فوري: «Hadir Update» على سطح المكتب
+echo   Updates run automatically every day at 6:00 AM and 1:00 PM
+echo   Update now any time: "Hadir Update" on the Desktop, then press reload in chrome://extensions
 echo  ===========================================================
 start "" chrome "chrome://extensions" >nul 2>&1
 pause
