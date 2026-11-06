@@ -34,6 +34,15 @@ async function vToday() {
   const sync = await get('sync');
   const active = Object.entries(sessions).find(([k, s]) => s.day === day && ['join', 'lock', 'live'].includes(s.phase));
   let h = '';
+  // مشاركة التبويب الحالي (المقطع) في Teams
+  const live = await chrome.runtime.sendMessage({ t: 'liveTab' });
+  const [cur] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (live && cur && cur.id !== live.tabId && !/teams\.(microsoft|cloud)/.test(cur.url || '')) {
+    h += `<div class="card hero"><div class="big">📤 مشاركة هذا التبويب في الحصة</div>
+      <div class="mut" style="margin:4px 0 8px">${esc((cur.title || '').slice(0, 60))}</div>
+      <div class="row"><button class="btn xl" id="shareNow">📤 شارك هذا التبويب في Teams</button><button class="btn s" id="stopShare">إيقاف المشاركة</button></div>
+      <div id="shareOut" class="mut" style="margin-top:6px"></div></div>`;
+  }
   // معالج أول مرة
   if (!st.onboarded) {
     const found = classes.filter(c => c.src === 'cal').length;
@@ -96,6 +105,15 @@ async function vToday() {
     const r = await chrome.runtime.sendMessage({ t: 'testNow', link: $('#tLink').value.trim(), video: $('#tVideo').value.trim(), dur: Number($('#tDur').value || 10) });
     if (!r?.ok) alert(r?.err || 'تعذّر'); else setTimeout(render, 800);
   };
+  const sh = $('#shareNow'); if (sh) sh.onclick = async () => {
+    const o = $('#shareOut'); o.textContent = 'جارٍ المشاركة…';
+    try {
+      const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: cur.id, consumerTabId: live.tabId });
+      const r = await chrome.runtime.sendMessage({ t: 'cmd', key: live.key, c: 'shareTab', streamId });
+      o.textContent = r?.ok ? '✅ المقطع يُعرض الآن للطلاب في Teams (بالصوت)' : '❌ ' + (r?.err || 'تعذّرت المشاركة');
+    } catch (e) { o.textContent = '❌ ' + e.message; }
+  };
+  const ssb = $('#stopShare'); if (ssb) ssb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'cmd', key: live.key, c: 'stopShare' }); $('#shareOut').textContent = r?.ok ? 'أُوقفت المشاركة' : 'أوقفها من Teams'; };
   const wz = $('#wzSync'); if (wz) wz.onclick = async () => { await chrome.runtime.sendMessage({ t: 'syncNow' }); wz.textContent = '⏳ جارٍ سحب حصصك…'; const iv = setInterval(async () => { if (!(await get('sync')).tabId) { clearInterval(iv); render(); } }, 3000); };
   const wd = $('#wzDone'); if (wd) wd.onclick = async () => { const s2 = await get('settings'); s2.onboarded = true; await set('settings', s2); render(); };
   const sb = $('#syncNow'); if (sb) sb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'syncNow' }); if (!r?.ok) alert(r?.err || 'تعذّر'); setTimeout(render, 500); };
@@ -105,6 +123,7 @@ async function vToday() {
 }
 async function cmd(key, c) {
   const out = $('#cmdOut'); out.textContent = '...';
+  if (c === 'video') { const v = await chrome.runtime.sendMessage({ t: 'openVideo' }); out.textContent = v.ok ? '' : v.err; if (v.ok) window.close(); return; }
   const r = await chrome.runtime.sendMessage({ t: 'cmd', key, c, name: $('#allowName')?.value || '', text: $('#askText')?.value.trim() || '' });
   if (!r?.ok) { out.textContent = r?.err || 'تعذّر التنفيذ'; return; }
   if (c === 'status') out.innerHTML = `الطلاب الآن (${r.people.length}): ${esc(r.people.join('، '))}<br>✋ ${esc(r.hands.join('، ') || 'لا أحد')}`;

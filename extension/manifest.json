@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "حاضر المعلم",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "مساعد المعلم في حصة Teams: يسحب حصصك من التقويم، ويفتح كل حصة في موعدها ويقفل المايك والكاميرا، ويرصد الحضور، وينهي الحصة آليًا.",
   "permissions": [
     "activeTab",
@@ -11,6 +11,7 @@
     "power",
     "scripting",
     "storage",
+    "tabCapture",
     "tabs"
   ],
   "host_permissions": [
@@ -40,6 +41,18 @@
     "128": "icons/128.png"
   },
   "content_scripts": [
+    {
+      "matches": [
+        "https://teams.microsoft.com/*",
+        "https://teams.cloud.microsoft/*"
+      ],
+      "js": [
+        "teams-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
     {
       "matches": [
         "https://teams.microsoft.com/*",

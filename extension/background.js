@@ -170,6 +170,18 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       await set('classes', cl); reply(n);
     } else if (m.t === 'suggestVideo') {
       reply(await suggestVideo(m.title || '', m.cls || ''));
+    } else if (m.t === 'liveTab') {
+      const tabs = await get('tabs'), ss = await get('sessions');
+      const e = Object.entries(tabs).find(([, k]) => ss[k] && ['join', 'lock', 'live'].includes(ss[k].phase));
+      reply(e ? { tabId: Number(e[0]), key: e[1] } : null);
+    } else if (m.t === 'openVideo') {
+      const tabs = await get('tabs'), ss = await get('sessions');
+      const e = Object.entries(tabs).find(([, k]) => ss[k] && ['join', 'lock', 'live'].includes(ss[k].phase));
+      const c = e ? (await get('classes')).find(x => x.id === ss[e[1]].classId) : null;
+      if (!c?.video) return reply({ ok: false, err: 'لا يوجد رابط مقطع لهذه الحصة' });
+      await chrome.tabs.create({ url: c.video, active: true });
+      note('شغّل المقطع، ثم اضغط أيقونة «حاضر المعلم» ← «📤 شارك هذا التبويب في Teams».');
+      reply({ ok: true });
     } else if (m.t === 'cloudLink') {
       const st = await get('settings');
       if (!st.cloudToken) { const a = new Uint8Array(18); crypto.getRandomValues(a); st.cloudToken = [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 32); await set('settings', st); }

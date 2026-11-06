@@ -25,6 +25,9 @@
     allowMic: ['السماح بالميكروفون للحضور', 'السماح للحضور بإلغاء كتم الصوت', 'Allow mic for attendees', 'Allow attendees to unmute'],
     allowCam: ['السماح بالكاميرا للحضور', 'Allow camera for attendees'],
     save: ['حفظ', 'Save'],
+    share: ['مشاركة', 'Share', 'مشاركة المحتوى', 'Share content'],
+    shareScreen: ['مشاركة الشاشة', 'الشاشة', 'شاشة', 'Screen', 'Share screen', 'علامة تبويب', 'Tab'],
+    stopShare: ['إيقاف المشاركة', 'إيقاف العرض', 'Stop sharing', 'Stop presenting'],
     you: ['(أنت)', '(You)'],
     headers: ['مقدمو الاجتماع', 'Presenters', 'الحضور', 'Attendees', 'في هذا الاجتماع', 'In this meeting', 'المنظم', 'Organizer',
       'مدعوون', 'Invited', 'الأيدي المرفوعة', 'Raised hands', 'الآخرون المدعوون', 'Others invited']
@@ -265,7 +268,7 @@
     out['لوحة المشاركين'] = !!peopleRoot();
     const ppl = readPeople() || []; out['عدد المقروئين'] = ppl.length; out['المعلم ظاهر'] = ppl.some(p => !p.self && isTeacher(p.name)) || !!ctx.manualTeacher;
     out['قفل'] = JSON.stringify(ctx.s.locked); out['المرحلة'] = ctx.s.phase;
-    out['زر المزيد'] = !!findBtn(L.moreTop); out['مفتاح مايك الحضور'] = (t => t ? (isOn(t) ? 'مفعّل' : 'مقفل') : 'غير ظاهر')(findToggle(L.allowMic));
+    out['زر المزيد'] = !!findBtn(L.moreTop); out['زر مشاركة'] = !!findBtn(L.share); out['مفتاح مايك الحضور'] = (t => t ? (isOn(t) ? 'مفعّل' : 'مقفل') : 'غير ظاهر')(findToggle(L.allowMic));
     out['مفتاح كاميرا الحضور'] = (t => t ? (isOn(t) ? 'مفعّل' : 'مقفل') : 'غير ظاهر')(findToggle(L.allowCam));
     out['صندوق الدردشة'] = !![...document.querySelectorAll('[contenteditable="true"]')].filter(vis).length;
     out['أزرار ظاهرة'] = [...document.querySelectorAll('button[aria-label]')].filter(vis).slice(0, 25).map(b => norm(b.getAttribute('aria-label')).slice(0, 30)).join(' | ');
@@ -274,6 +277,25 @@
   function lessonSummary() {
     const qs = (ctx.s.questions || []).map(q => '• ' + q.text).join('\n');
     return `📝 ملخص درس «${(ctx.s.lesson || ctx.s.cls).trim()}»` + (ctx.video ? `\n🎬 مقطع الدرس: ${ctx.video}` : '') + (qs ? `\n❓ أسئلة اليوم:\n${qs}` : '') + '\nراجعوا الدرس، ومن فاته شيء يسأل في الحصة القادمة.';
+  }
+  // مشاركة تبويب المقطع في Teams (التبويب يلتقطه المتصفح بإذن ضغطة المعلم على الإضافة)
+  function waitShared(ms) {
+    return new Promise(res => {
+      const t = setTimeout(() => { window.removeEventListener('message', h); res({ ok: false, err: 'لم يطلب Teams الشاشة — جرّب زر «مشاركة» يدويًا' }); }, ms);
+      function h(e) { if (e.source === window && e.data && e.data.__hadir === 'shared') { clearTimeout(t); window.removeEventListener('message', h); res(e.data); } }
+      window.addEventListener('message', h);
+    });
+  }
+  async function shareTab(streamId) {
+    window.postMessage({ __hadir: 'share', streamId }, '*');
+    const wait = waitShared(15000);
+    const topShare = [...document.querySelectorAll('button,[role="button"]')].filter(vis)
+      .find(b => /^(مشاركة|Share)(\s|$)/.test(norm(b.getAttribute('aria-label') || b.innerText)) || /share-button|sharing-button/i.test(b.getAttribute('data-tid') || b.id || ''));
+    if (topShare) { topShare.click(); await sleep(1500); } else if (!(await click(L.share))) return { ok: false, err: 'لم أجد زر «مشاركة» في Teams' };
+    await click(L.shareScreen); // درج المشاركة: اختر «الشاشة» إن ظهر
+    const r = await wait;
+    if (r.ok) log('بدأت مشاركة المقطع');
+    return r.ok ? { ok: true } : { ok: false, err: r.err };
   }
   const sim = (a, b) => { a = norm(a); b = norm(b); if (a === b) return true; const A = a.split(' '), B = b.split(' ');
     return (A[0] === B[0] && A[1] && B[1] && A[1] === B[1]) || a.includes(b) || b.includes(a); };
@@ -334,6 +356,8 @@
       else if (m.c === 'video') { if (ctx.video) send({ t: 'video', url: ctx.video }); reply({ ok: !!ctx.video, err: ctx.video ? '' : 'لا يوجد رابط مقطع' }); }
       else if (m.c === 'end') { await finish(); reply({ ok: true }); }
       else if (m.c === 'ask') reply(await ask(m.text || null));
+      else if (m.c === 'shareTab') reply(await shareTab(m.streamId));
+      else if (m.c === 'stopShare') reply({ ok: await click(L.stopShare) });
       else if (m.c === 'diag') reply({ ok: true, diag: await diag() });
       else if (m.c === 'summary') { const t = lessonSummary(); await patch({ summary: t }); reply({ ok: await postChat(t), text: t }); }
       else reply({ ok: false });
