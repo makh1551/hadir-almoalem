@@ -250,7 +250,7 @@ async function vStudents() {
     <div class="mut">في مدرستي: اختر «الفصل» ثم «بحث» حتى يظهر جدول الطلاب، ثم اسحب.</div>
     <div class="mut">افتح صفحة الفصل التي فيها أسماء الطلاب (أعضاء فريق الفصل في Teams، أو قائمة الفصل في مدرستي)، ثم اضغط «اسحب».</div>
     <label>الصف</label><input id="rCls" list="clsList" placeholder="السادس أ"><datalist id="clsList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><button class="btn s" id="pullDiag">🩺 تشخيص السحب</button><span id="pullMsg" class="mut"></span></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><button class="btn s" id="pullDiag">🩺 تشخيص السحب</button><span id="pullMsg" class="mut"></span></div><div id="bulk"></div>
     <label>الأسماء (اسم في كل سطر — راجعها واحذف غير الطلاب)</label><textarea id="rNames">${esc(pulled.join('\n'))}</textarea>
     <div class="row"><button class="btn" id="rSave">حفظ قائمة الصف</button></div></details>`;
   for (const [k, v] of Object.entries(rosters)) {
@@ -327,6 +327,23 @@ function scrapeNames() {
   }
   return [...out];
 }
+// بطاقات «طلابي» في مدرستي: تُرجع {الصف: [الأسماء]}
+function scrapeByClass() {
+  const clean = t => String(t || '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+  const isName = t => t.length >= 6 && t.length <= 60 && !/[:：@\d]/.test(t) && /^[ء-ي' ]+$/.test(t) && (n => n >= 2 && n <= 6)(t.split(' ').length);
+  const cnt = e => ((e.innerText || '').match(/اسم الفصل/g) || []).length;
+  const marks = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,li,p,span,div')].filter(e => e.children.length <= 2 && /اسم الفصل\s*[:：]/.test(e.textContent || '') && (e.textContent || '').length < 90);
+  const out = {}, seen = new Set();
+  for (const m of marks) {
+    let card = m.closest('.card');
+    if (!card || cnt(card) !== 1) { card = m; while (card.parentElement && cnt(card.parentElement) === 1) card = card.parentElement; }
+    if (seen.has(card)) continue; seen.add(card);
+    const cls = clean((m.textContent.match(/اسم الفصل\s*[:：]\s*([^\n]+)/) || [])[1]).replace(/^الصف\s+/, '');
+    const name = (card.innerText || '').split('\n').map(clean).find(isName);
+    if (cls && name) (out[cls] = out[cls] || []).includes(name) || out[cls].push(name);
+  }
+  return out;
+}
 // تشخيص بنية الصفحة دون كشف الأسماء (تُستبدل النصوص بعدد كلماتها)
 function scrapeDiag() {
   const mask = t => String(t || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 8).map(x => /[:：]/.test(x) || x.length < 4 ? x.slice(0, 40) : `[${x.split(/\s+/).length} كلمات]`).join(' ⏎ ');
@@ -338,6 +355,28 @@ function scrapeDiag() {
   return out;
 }
 async function pullNames() {
+  const msg0 = $('#pullMsg');
+  const [tab0] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try {
+    const [{ result: groups } = {}] = await chrome.scripting.executeScript({ target: { tabId: tab0.id }, func: scrapeByClass });
+    const keys = Object.keys(groups || {});
+    if (keys.length) {
+      const want = $('#rCls').value.trim().replace(/^الصف\s+/, '');
+      if (keys.length === 1 || keys.includes(want)) {
+        const k = keys.includes(want) ? want : keys[0];
+        $('#rCls').value = k; pulled = groups[k]; $('#rNames').value = pulled.join('\n');
+      }
+      $('#bulk').innerHTML = `<div class="card ok" style="margin-top:8px">وجدت في الصفحة: ${keys.map(k => `<b>${esc(k)}</b> (${groups[k].length})`).join('، ')}
+        <div class="row" style="margin-top:6px"><button class="btn" id="saveAll">💾 حفظ كل الصفوف دفعة واحدة</button></div></div>`;
+      $('#saveAll').onclick = async () => {
+        const r = await get('rosters'), a = await get('autoRosters');
+        for (const k of keys) { r[k] = groups[k]; delete a[k]; }
+        await set('rosters', r); await set('autoRosters', a); pulled = []; render();
+      };
+      msg0.textContent = `✓ ${keys.reduce((n, k) => n + groups[k].length, 0)} طالبًا في ${keys.length} صف`;
+      return;
+    }
+  } catch (e) {}
   const msg = $('#pullMsg'); msg.textContent = 'جارٍ السحب...';
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || /^chrome|^edge/.test(tab.url || '')) { msg.textContent = 'افتح صفحة الفصل أولًا'; return; }
