@@ -1,6 +1,6 @@
 // حاضر المعلم — الخلفية: سحب الحصص من التقويم، وفتح كل حصة في موعدها، والتنبيهات
 const DEF = {
-  settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '', postSummary: true, cloud: false, cloudToken: '' },
+  settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '', postSummary: true, cloud: false, cloudToken: '', source: 'rased', rasedUrl: 'https://sk-1.wasl.uk/', rasedTeacher: '' },
   clsMap: {},    // معرّف فريق/قناة Teams ← الصف (يتعلّم من تعديلاتك)
   update: {},    // {version, url, notes, checked}
   daySummary: {}, // {date: true} أُرسل تنبيه ملخص اليوم
@@ -48,6 +48,9 @@ async function tick() {
   // سحب التقويم في الأوقات المحددة
   const times = String(st.syncTimes || '').split(',').map(s => s.trim()).filter(Boolean);
   if (times.includes(hhmm())) startSync();
+  // راصد يضيف روابط اليوم صباحًا: حدّث كل 10 دقائق ما دامت حصة اليوم بلا رابط
+  if (st.source !== 'outlook' && st.rasedTeacher && d.getMinutes() % 10 === 0 && nm >= 6 * 60 + 30 && nm <= 13 * 60
+      && classes.some(c => c.src === 'rased' && c.date === day && !c.link && nm < mins(c.start) + Number(c.dur || 39))) rasedSync();
   if (sync.tabId && Date.now() - sync.startedAt > 8 * 60000) { // مهلة
     try { await chrome.tabs.remove(sync.tabId); } catch (e) {}
     await set('sync', { ...sync, tabId: null, lastErr: 'انتهت مهلة السحب' });
@@ -91,6 +94,7 @@ async function tick() {
   } catch (e) {}
   // فتح كل حصة في موعدها
   for (const c of classes) {
+    if (c.src === 'rased' && !c.link && classToday(c, day, dow) && nm >= mins(c.start) - 5 && nm < mins(c.start) + Number(st.guardMin || 10)) { rasedSync(); continue; }
     if (!classToday(c, day, dow) || !c.link) continue;
     const key = day + '|' + c.id;
     if (sessions[key]) continue;
@@ -112,8 +116,59 @@ async function openSession(c, key) {
   note(`بدأت حصة ${c.cls || c.lesson} – جارٍ فتحها وتجهيزها`);
 }
 
+// ===== سحب الحصص من «راصد» (جدول المدرسة اليومي بروابطه) =====
+async function rasedWeek(url) {
+  const r = await fetch((url || DEF.settings.rasedUrl) + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error('تعذّر فتح راصد (' + r.status + ')');
+  const t = await r.text(), i = t.indexOf('const WEEK = ');
+  if (i < 0) throw new Error('لم أجد جدول الحصص في راصد');
+  let d = 0, j = i + 13; for (; j < t.length; j++) { const c = t[j]; if (c === '{') d++; else if (c === '}' && --d === 0) break; }
+  return JSON.parse(t.slice(i + 13, j + 1));
+}
+const teamsLink = k => !k ? '' : /^https?:/.test(k) ? k : 'https://teams.microsoft.com/meet/' + k;
+async function rasedTeachers(url) {
+  const W = await rasedWeek(url), set_ = {};
+  for (const D of Object.values(W)) (D.data || []).forEach(s => (s.periods || []).forEach(p => (p.rows || []).forEach(r => { if (r.t) set_[r.t] = s.name; })));
+  return Object.entries(set_).map(([n, s]) => ({ n, s })).sort((a, b) => a.n.localeCompare(b.n, 'ar'));
+}
+let rasedBusy = 0;
+async function rasedSync() {
+  if (Date.now() - rasedBusy < 20000) return { ok: true, busy: true };
+  rasedBusy = Date.now();
+  const st = await get('settings'), sync = await get('sync');
+  if (!st.rasedTeacher) return { ok: false, err: 'اختر اسمك من قائمة معلمي راصد أولًا' };
+  try {
+    const W = await rasedWeek(st.rasedUrl), now = today();
+    const classes = await get('classes'), byId = Object.fromEntries(classes.map(c => [c.id, c]));
+    const fresh = {}, dates = new Set();
+    for (const [date, D] of Object.entries(W)) {
+      if (date < now) continue; dates.add(date);
+      (D.data || []).forEach(s => (s.periods || []).forEach(p => {
+        if (p.skip) return;
+        for (const r of p.rows || []) {
+          if (r.t !== st.rasedTeacher || r.act) continue;
+          const id = 'rs-' + date + '-' + String(p.f).replace(':', '') + '-' + hash(r.c || '');
+          const old = byId[id] || {};
+          fresh[id] = { id, src: 'rased', date, start: p.f, dur: Math.max(10, mins(p.e) - mins(p.f)) || 39, cls: r.c || old.cls || '', lesson: r.l || old.lesson || '',
+            link: teamsLink(r.k) || old.link || '', alt: (r.k2 || []).map(teamsLink), video: old.video || '', questions: old.questions || '',
+            skip: old.id ? !!old.skip : st.pickMode === true };
+        }
+      }));
+    }
+    const kept = classes.filter(c => c.src !== 'rased' || (!dates.has(c.date) && c.date >= now));
+    await set('classes', [...kept.filter(c => !fresh[c.id]), ...Object.values(fresh)]);
+    const list = Object.values(fresh);
+    await set('sync', { ...sync, last: new Date().toISOString(), lastCount: list.length, lastErr: '', rasedAt: Date.now() });
+    return { ok: true, n: list.length, noLink: list.filter(c => !c.link).length };
+  } catch (e) {
+    await set('sync', { ...sync, lastErr: String(e.message || e) });
+    return { ok: false, err: String(e.message || e) };
+  }
+}
+
 // ===== سحب الحصص من تقويم Outlook =====
 async function startSync() {
+  if ((await get('settings')).source !== 'outlook') return rasedSync();
   const sync = await get('sync');
   if (sync.tabId) return { ok: false, err: 'السحب يعمل الآن' };
   const tab = await chrome.tabs.create({ url: 'https://outlook.office.com/calendar/view/workweek', active: false });
@@ -203,6 +258,8 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       reply({ ok: true, cloud: st.cloud, url: CLOUD + '/m/' + st.cloudToken });
     } else if (m.t === 'checkUpdate') {
       reply(await checkUpdate(true));
+    } else if (m.t === 'rasedTeachers') {
+      try { reply({ ok: true, list: await rasedTeachers((await get('settings')).rasedUrl) }); } catch (e) { reply({ ok: false, err: String(e.message || e) }); }
     } else if (m.t === 'syncNow') {
       reply(await startSync());
     } else if (m.t === 'update') {

@@ -46,12 +46,17 @@ async function vToday() {
   }
   // معالج أول مرة
   if (!st.onboarded) {
-    const found = classes.filter(c => c.src === 'cal').length;
+    const found = classes.filter(c => c.src === 'cal' || c.src === 'rased').length;
     h += `<div class="card hero"><div class="big">👋 أهلًا بك في حاضر المعلم</div>
-      <div class="mut" style="margin:6px 0 10px">خطوة واحدة: سجّل الدخول في Outlook بحسابك في هذا المتصفح، ثم اضغط الزر. سأتعرف على اسمك وأسحب حصصك تلقائيًا.</div>
-      <button class="btn xl" id="wzSync">${sync.tabId ? '⏳ جارٍ سحب حصصك…' : '🔄 اسحب حصصي وابدأ'}</button>
-      ${found || st.teacherName ? `<div style="margin-top:10px">✅ ${st.teacherName ? 'عرفتك: <b>' + esc(st.teacherName) + '</b> · ' : ''}وجدت ${found} حصة.</div>
-      <div class="row" style="margin-top:8px"><button class="btn" id="wzDone">تم، ابدأ</button><span class="mut">الاسم غير صحيح؟ عدّله من الإعدادات.</span></div>` : ''}</div>`;
+      <div class="mut" style="margin:6px 0 8px">خطوة واحدة: اختر اسمك، وتُسحب حصصك وروابطها من جدول «راصد» تلقائيًا كل يوم.</div>
+      <select id="wzT" style="width:100%"><option value="">⏳ جارٍ تحميل أسماء المعلمين…</option></select>
+      <button class="btn xl" id="wzGo" style="margin-top:8px;width:100%">🔄 اسحب حصصي وابدأ</button>
+      <div id="wzOut" class="mut" style="margin-top:6px"></div>
+      ${found ? `<div style="margin-top:10px">✅ ${st.rasedTeacher ? '<b>' + esc(st.rasedTeacher) + '</b> · ' : ''}وجدت ${found} حصة.</div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="wzDone">تم، ابدأ</button></div>` : ''}
+      <details style="margin-top:8px"><summary class="mut">مدرستك ليست في راصد؟ اسحب من تقويم Outlook</summary>
+        <div class="mut">سجّل الدخول في Outlook بحسابك في هذا المتصفح، ثم:</div>
+        <button class="btn s" id="wzSync" style="margin-top:6px">${sync.tabId ? '⏳ جارٍ السحب…' : '📅 اسحب من تقويم Outlook'}</button></details></div>`;
   }
   // البطاقة الرئيسية: الحصة الجارية أو القادمة
   if (active) {
@@ -96,10 +101,10 @@ async function vToday() {
   for (const c of list) {
     const s = Object.values(sessions).find(x => x.day === day && x.classId === c.id);
     const ph = s ? PH[s.phase] : null;
-    h += `<div class="card"><div class="row"><b>${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅 التقويم</span>' : ''}${ph ? `<span class="tag ${ph[1]}">${ph[0]}</span>` : ''}</div>
+    h += `<div class="card"><div class="row"><b>${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅 التقويم</span>' : c.src === 'rased' ? '<span class="tag">📋 راصد</span>' : ''}${ph ? `<span class="tag ${ph[1]}">${ph[0]}</span>` : ''}</div>
       <div class="mut">${esc(c.lesson || '')}</div>
       <div class="row" style="margin-top:6px">
-        ${c.link ? '' : '<span class="tag bad">بلا رابط</span>'}${c.video ? '<span class="tag ok">المقطع جاهز</span>' : '<span class="tag warn">بلا مقطع – أضف الرابط</span>'}
+        ${c.link ? '' : c.src === 'rased' ? '<span class="tag warn">الرابط يُضاف صباحًا من راصد</span>' : '<span class="tag bad">بلا رابط</span>'}${c.video ? '<span class="tag ok">المقطع جاهز</span>' : '<span class="tag warn">بلا مقطع – أضف الرابط</span>'}
         <button class="btn s" data-open="${c.id}" style="margin-inline-start:auto">افتح الآن</button></div></div>`;
   }
   $('#main').innerHTML = h;
@@ -116,7 +121,15 @@ async function vToday() {
     } catch (e) { o.textContent = '❌ ' + e.message; }
   };
   const ssb = $('#stopShare'); if (ssb) ssb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'cmd', key: live.key, c: 'stopShare' }); $('#shareOut').textContent = r?.ok ? 'أُوقفت المشاركة' : 'أوقفها من Teams'; };
-  const wz = $('#wzSync'); if (wz) wz.onclick = async () => { await chrome.runtime.sendMessage({ t: 'syncNow' }); wz.textContent = '⏳ جارٍ سحب حصصك…'; const iv = setInterval(async () => { if (!(await get('sync')).tabId) { clearInterval(iv); render(); } }, 3000); };
+  const wz = $('#wzSync'); if (wz) wz.onclick = async () => { const s2 = await get('settings'); s2.source = 'outlook'; await set('settings', s2); await chrome.runtime.sendMessage({ t: 'syncNow' }); wz.textContent = '⏳ جارٍ السحب…'; const iv = setInterval(async () => { if (!(await get('sync')).tabId) { clearInterval(iv); render(); } }, 3000); };
+  if ($('#wzT')) fillTeachers($('#wzT'), st.rasedTeacher, $('#wzOut'));
+  const wg = $('#wzGo'); if (wg) wg.onclick = async () => {
+    const t = $('#wzT').value; if (!t) return ($('#wzOut').textContent = 'اختر اسمك أولًا');
+    const s2 = await get('settings'); s2.source = 'rased'; s2.rasedTeacher = t; if (!s2.teacherName) s2.teacherName = t; await set('settings', s2);
+    wg.textContent = '⏳ جارٍ السحب…'; const r = await chrome.runtime.sendMessage({ t: 'syncNow' });
+    if (!r?.ok) { $('#wzOut').textContent = r?.err || 'تعذّر'; wg.textContent = '🔄 اسحب حصصي وابدأ'; return; }
+    s2.onboarded = true; await set('settings', s2); render();
+  };
   const wd = $('#wzDone'); if (wd) wd.onclick = async () => { const s2 = await get('settings'); s2.onboarded = true; await set('settings', s2); render(); };
   const sb = $('#syncNow'); if (sb) sb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'syncNow' }); if (!r?.ok) alert(r?.err || 'تعذّر'); setTimeout(render, 500); };
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = async () => {
@@ -141,6 +154,14 @@ async function cmd(key, c) {
   if (c === 'end') setTimeout(render, 1500);
 }
 
+// قائمة معلمي راصد
+async function fillTeachers(sel, cur, out) {
+  const r = await chrome.runtime.sendMessage({ t: 'rasedTeachers' });
+  if (!r?.ok) { sel.innerHTML = '<option value="">تعذّر تحميل القائمة</option>'; if (out) out.textContent = r?.err || ''; return; }
+  const by = {}; r.list.forEach(x => (by[x.s] = by[x.s] || []).push(x.n));
+  sel.innerHTML = '<option value="">— اختر اسمك —</option>' + Object.entries(by).map(([s, ns]) => `<optgroup label="${esc(s)}">${ns.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
+}
+
 // ===== الحصص =====
 async function vClasses() {
   const classes = await get('classes'), rosters = await get('rosters'), autoR = await get('autoRosters');
@@ -159,10 +180,11 @@ async function vClasses() {
   const now = new Date().toISOString().slice(0, 10);
   const shown = [...classes].filter(c => !c.date || c.date >= now)
     .sort((a, b) => (a.date || '0' + a.day).localeCompare(b.date || '0' + b.day) || a.start.localeCompare(b.start));
-  h = `<div class="card mut">حصص التقويم تُسحب آليًا (${esc((await get('settings')).syncTimes)}). عدّل «الصف» و«المقطع» لكل حصة من زر تعديل.</div>` + h;
+  const stc = await get('settings');
+  h = `<div class="card mut">${stc.source === 'outlook' ? 'حصص التقويم تُسحب آليًا (' + esc(stc.syncTimes) + ').' : 'حصصك تُسحب آليًا من جدول «راصد»' + (stc.rasedTeacher ? ' باسم <b>' + esc(stc.rasedTeacher) + '</b>' : '') + '، وروابطها تُضاف صباح كل يوم.'} أضف «المقطع» لكل حصة من زر تعديل.</div>` + h;
   for (const c of shown) {
     const when = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' }) : 'كل ' + DAYS[c.day];
-    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
+    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : c.src === 'rased' ? '<span class="tag">📋 راصد</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
       <button class="btn s" data-tog="${c.id}">${c.skip ? '▶️ اختر' : '⏸ ألغِ'}</button><button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
       <div class="mut">${esc(c.lesson || '')} ${c.video ? '· 🎬' : '· ⚠️ بلا مقطع'} ${c.link ? '' : '· ⚠️ بلا رابط'}</div></div>`;
   }
@@ -463,7 +485,12 @@ function csv(s) {
 // ===== الإعدادات =====
 async function vSettings() {
   const st = await get('settings');
-  $('#main').innerHTML = `<div class="card">
+  $('#main').innerHTML = `<div class="card"><b>📥 مصدر الحصص</b>
+    <select id="sSrc" style="width:100%;margin-top:6px"><option value="rased" ${st.source !== 'outlook' ? 'selected' : ''}>جدول «راصد» (المدرسة) — موصى به</option><option value="outlook" ${st.source === 'outlook' ? 'selected' : ''}>تقويم Outlook</option></select>
+    <div id="srcR" style="${st.source === 'outlook' ? 'display:none' : ''}"><label>اسمك في جدول المدرسة</label><select id="sRT" style="width:100%"><option>${esc(st.rasedTeacher || '…')}</option></select>
+      <div class="mut">تُسحب حصصك وروابطها كل صباح، ويُعاد السحب كل 10 دقائق إن نقص رابط حصة اليوم.</div></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="srcSave">حفظ واسحب الآن</button><span id="srcMsg" class="mut"></span></div></div>
+    <div class="card">
     <label>اسمك كما يظهر في Teams</label><input id="sName" value="${esc(st.teacherName)}" style="width:100%">
     <label>جوالك لملخص اليوم على واتساب</label><input id="sWa" value="${esc(st.waPhone || '')}" placeholder="05xxxxxxxx" style="width:100%">
     <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="sSum" ${st.postSummary !== false ? 'checked' : ''}> انشر ملخص الدرس في الدردشة قبل النهاية</label>
@@ -491,6 +518,14 @@ async function vSettings() {
     <div class="card"><b>نسخة احتياطية</b><div class="row" style="margin-top:6px">
       <button class="btn s" id="bExp">تصدير</button><label class="btn s" style="margin:0">استيراد<input id="bImp" type="file" accept=".json" hidden></label></div></div>
     <div class="card mut">يجب أن يكون الحساب المسجّل في Teams بهذا المتصفح «مقدّمًا» في الاجتماع حتى يستطيع القفل. لمشاركة المقطع اضغط «مشاركة» في Teams واختر تبويب المقطع (يطلب Chrome ضغطة منك لأسباب أمنية).</div>`;
+  fillTeachers($('#sRT'), st.rasedTeacher);
+  $('#sSrc').onchange = e => { $('#srcR').style.display = e.target.value === 'outlook' ? 'none' : ''; };
+  $('#srcSave').onclick = async () => {
+    const s2 = await get('settings'); s2.source = $('#sSrc').value; if (s2.source === 'rased') { if (!$('#sRT').value) return ($('#srcMsg').textContent = 'اختر اسمك'); s2.rasedTeacher = $('#sRT').value; }
+    await set('settings', s2); $('#srcMsg').textContent = '⏳';
+    const r = await chrome.runtime.sendMessage({ t: 'syncNow' });
+    $('#srcMsg').textContent = !r?.ok ? (r?.err || 'تعذّر') : s2.source === 'rased' ? `✓ سُحبت ${r.n} حصة` + (r.noLink ? ` · ${r.noLink} بلا رابط بعد (يُضاف صباح يومها)` : '') : '✓ جارٍ السحب من التقويم';
+  };
   $('#sSave').onclick = async () => {
     await set('settings', { ...(await get('settings')), teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim(), postSummary: $('#sSum').checked });
     $('#sMsg').textContent = '✓ حُفظ';
