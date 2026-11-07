@@ -3,7 +3,6 @@ title Hadir Almoalem - Install / Update
 setlocal
 set "DIR=%USERPROFILE%\HadirAlmoalem"
 set "EXT=%DIR%\extension"
-set "TMPD=%TEMP%\hadir-new"
 set "ZIP=%TEMP%\hadir.zip"
 if not exist "%DIR%" mkdir "%DIR%"
 echo.
@@ -16,20 +15,9 @@ if not exist "%ZIP%" (
   if /i not "%~1"=="silent" pause
   exit /b 1
 )
-echo  [2/3] Extracting ...
-if exist "%TMPD%" rmdir /s /q "%TMPD%" >nul 2>&1
-mkdir "%TMPD%"
-tar -xf "%ZIP%" -C "%TMPD%" >nul 2>&1
-if not exist "%TMPD%\manifest.json" powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%TMPD%' -Force" >nul 2>&1
-if not exist "%TMPD%\manifest.json" (
-  echo  ERROR: could not extract the package.
-  if /i not "%~1"=="silent" pause
-  exit /b 1
-)
-echo  [3/3] Copying to %EXT% ...
-robocopy "%TMPD%" "%EXT%" /MIR /R:2 /W:2 /NFL /NDL /NJH /NJS /NP >nul
-rmdir /s /q "%TMPD%" >nul 2>&1
-del /f /q "%ZIP%" >nul 2>&1
+echo  [2/3] Extracting and copying to %EXT% ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; try { $z=$env:ZIP; $e=$env:EXT; if (Test-Path $e) { Get-ChildItem -LiteralPath $e -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }; New-Item -ItemType Directory -Force -Path $e | Out-Null; Expand-Archive -LiteralPath $z -DestinationPath $e -Force; Remove-Item -LiteralPath $z -Force -ErrorAction SilentlyContinue; exit 0 } catch { Write-Host ('  ' + $_.Exception.Message); exit 1 }"
+echo  [3/3] Checking ...
 if not exist "%EXT%\manifest.json" (
   echo  ERROR: could not copy files to %EXT%
   if /i not "%~1"=="silent" pause
