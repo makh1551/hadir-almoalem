@@ -263,6 +263,7 @@ function myRow(m) {
     <div class="full"><label>رابط اجتماع Teams الثابت</label><div class="row"><input class="mLink" value="${esc(m.link || '')}" placeholder="https://teams.microsoft.com/..." style="flex:1"><button class="btn r mDel" title="حذف">✕</button></div></div></div>`;
 }
 function bindTable() {
+  if (!$('#myAdd') || $('#myAdd').dataset.b) return; $('#myAdd').dataset.b = 1;
   const del = () => document.querySelectorAll('.mDel').forEach(b => b.onclick = () => b.closest('.myr').remove()); del();
   $('#myAdd').onclick = () => { $('#myList').insertAdjacentHTML('beforeend', myRow({ cls: '', subject: '', link: '' })); del(); };
   $('#ttSave').onclick = async () => {
