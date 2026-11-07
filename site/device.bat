@@ -67,7 +67,7 @@ echo   4- Always open Chrome from "Hadir Chrome" on the Desktop
 echo   5- Leave the computer ON and plugged in. Nothing else.
 echo  ===========================================================
 echo.
-echo  Press any key to restart Chrome now with automatic sharing
-echo  (your open tabs will come back) ...
-pause >nul
+echo  Chrome will restart in 20 seconds with automatic sharing
+echo  (your open tabs will come back). Press a key to do it now.
+timeout /t 20
 if defined LCH call "%LCH%"
