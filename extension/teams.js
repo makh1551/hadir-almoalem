@@ -398,7 +398,7 @@
   // التحكم من الجوال: يسأل عن أمر جديد كل 3 ثوانٍ، ويرفع حالة الحصة كل 15 ثانية أو بعد كل أمر
   async function remoteLoop() {
     if (!ctx.st.ctlToken) return;
-    let after = Date.now(), lastPush = 0, ack = null, busy = false;
+    let after = null, lastPush = 0, ack = null, busy = false;
     const state = () => {
       let ppl = []; try { ppl = (readPeople() || []).filter(p => !p.self && !isTeacher(p.name)).map(p => p.name); } catch (e) {}
       const roster = ctx.roster || [], absent = roster.length ? roster.filter(n => !ppl.some(x => sim(x, n))).length : null;
@@ -409,8 +409,9 @@
     const tickR = async () => {
       if (busy) return; busy = true;
       try {
-        const r = await send({ t: 'ctlPoll', after });
-        if (r && r.cmd && r.cmd.id > after) {
+        const r = await send({ t: 'ctlPoll', after: after || 0 });
+        if (after === null) after = (r && r.cmd && r.cmd.id) || 1; // أول سؤال: تجاهل أي أمر قديم
+        else if (r && r.cmd && r.cmd.id > after) {
           after = r.cmd.id; log('📱 أمر من الجوال: ' + r.cmd.c);
           let res; try { res = await runCmd({ ...r.cmd, remote: true }); } catch (e) { res = { ok: false, err: String(e) }; }
           ack = { id: r.cmd.id, ...res, people: res.people, absent: res.absent }; await push();
