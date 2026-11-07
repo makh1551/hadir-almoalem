@@ -49,6 +49,16 @@ export default {
     if (m) { if (!TOKEN.test(m[1])) return json({}, 400); const v = await env.DATA.get('r:' + m[1]); return v ? new Response(v, { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }) : json({ sessions: [] }); }
     if (/^\/m\/[a-z0-9]+$/.test(p)) return page('site/m.html');
 
+    // التحكم من الجوال: كائن دائم لكل معلم (فوري ومتسق)
+    m = p.match(/^\/api\/ctl\/([a-z0-9]+)\/(cmd|state)$/);
+    if (m) {
+      if (!TOKEN.test(m[1])) return json({ ok: false }, 400);
+      const stub = env.CTL.get(env.CTL.idFromName(m[1]));
+      const r = await stub.fetch('https://do/' + m[2] + u.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
+      return new Response(r.body, { status: r.status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
+    }
+    if (/^\/c\/[a-z0-9]+$/.test(p)) return page('site/c.html');
+
     // الاستبيان
     if (p === '/api/feedback' && req.method === 'POST') {
       const body = await req.text(); if (body.length > 6000) return json({ ok: false }, 413);
@@ -72,3 +82,26 @@ export default {
     return page(path);
   }
 };
+
+// كائن التحكم: آخر أمر من الجوال + آخر حالة من الحصة
+export class Ctl {
+  constructor(state) { this.st = state.storage; }
+  async fetch(req) {
+    const u = new URL(req.url), k = u.pathname.slice(1);
+    const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
+    if (req.method === 'POST') {
+      const body = await req.text(); if (body.length > 60000) return J({ ok: false }, 413);
+      let o; try { o = JSON.parse(body); } catch (e) { return J({ ok: false }, 400); }
+      if (k === 'cmd') {
+        const C = ['teacherIn', 'muteAll', 'relock', 'status', 'ask', 'summary', 'video', 'end', 'allow'];
+        if (!C.includes(o.c)) return J({ ok: false }, 400);
+        const cmd = { id: Date.now(), c: o.c, text: String(o.text || '').slice(0, 300), name: String(o.name || '').slice(0, 80) };
+        await this.st.put('cmd', cmd); return J({ ok: true, id: cmd.id });
+      }
+      o.at = Date.now(); await this.st.put('state', o); return J({ ok: true });
+    }
+    if (k === 'cmd') { const c = await this.st.get('cmd'); const after = Number(u.searchParams.get('after') || 0);
+      return J(c && c.id > after && Date.now() - c.id < 120000 ? { cmd: c } : {}); }
+    return J((await this.st.get('state')) || {});
+  }
+}

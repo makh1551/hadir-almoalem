@@ -219,6 +219,17 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       reply({ ok: true, cloud: st.cloud, url: CLOUD + '/m/' + st.cloudToken });
     } else if (m.t === 'checkUpdate') {
       reply(await checkUpdate(true));
+    } else if (m.t === 'ctlPoll') {
+      const st = await get('settings'); if (!st.ctlToken) return reply({});
+      try { reply(await (await fetch(CLOUD + '/api/ctl/' + st.ctlToken + '/cmd?after=' + Number(m.after || 0), { cache: 'no-store' })).json()); } catch (e) { reply({}); }
+    } else if (m.t === 'ctlState') {
+      const st = await get('settings'); if (!st.ctlToken) return reply(false);
+      try { await fetch(CLOUD + '/api/ctl/' + st.ctlToken + '/state', { method: 'POST', body: JSON.stringify(m.state) }); reply(true); } catch (e) { reply(false); }
+    } else if (m.t === 'ctlLink') {
+      const st = await get('settings');
+      if (m.enable === false) { st.ctlToken = ''; await set('settings', st); return reply({ on: false }); }
+      if (!st.ctlToken && m.enable) { const a = new Uint8Array(16); crypto.getRandomValues(a); st.ctlToken = [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 30); await set('settings', st); }
+      reply(st.ctlToken ? { on: true, url: CLOUD + '/c/' + st.ctlToken } : { on: false });
     } else if (m.t === 'syncNow') {
       reply(await startSync());
     } else if (m.t === 'update') {

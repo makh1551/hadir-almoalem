@@ -6,6 +6,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function get(k) { const o = await chrome.storage.local.get(k); return o[k] ?? structuredClone(DEF[k]); }
 async function set(k, v) { await chrome.storage.local.set({ [k]: v }); }
+const waNum = s => { s = String(s || '').replace(/\D/g, ''); return s.startsWith('05') ? '966' + s.slice(1) : s.startsWith('5') ? '966' + s : s; };
 const pad = n => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const PH = { join: ['جارٍ الدخول', 'warn'], lock: ['جارٍ القفل', 'warn'], live: ['يعمل', 'ok'], done: ['انتهت', 'ok'], stopped: ['أُوقف', 'bad'] };
@@ -545,6 +546,10 @@ async function vSettings() {
     <div class="mut" style="margin-top:6px">الضمانة: إذا لم تدخل خلال هذه المدة، أو غبت أكثر منها، يوقف المساعد ويغادر.</div>
     </details>
     <div class="row" style="margin-top:8px"><button class="btn" id="sSave">حفظ</button><span id="sMsg" class="mut"></span></div></div>
+    <div class="card"><b>📲 التحكم بالحصة من جوالك</b>
+      <div class="mut">صفحة على جوالك فيها: أنا داخل، كتم الجميع، إعادة القفل، الحضور، المقطع، سؤال، ملخص، إنهاء — تُنفَّذ فورًا على الحصة المفتوحة هنا.</div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="sCtl" ${st.ctlToken ? 'checked' : ''}> تفعيل التحكم من الجوال</label>
+      <div id="ctlOut" style="margin-top:6px"></div></div>
     <div class="card"><b>📱 التقارير على جوالك</b>
       <div class="mut">ترفع الإضافة تقارير آخر 3 أسابيع إلى رابط خاص بك، تفتحه من الجوال. أسماء الطلاب تُرسل إلى خادم «حاضر المعلم»، فلا تفعّلها إلا إن وافقت على ذلك.</div>
       <label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="sCloud" ${st.cloud ? 'checked' : ''}> تفعيل التقارير على الجوال</label>
@@ -566,6 +571,11 @@ async function vSettings() {
   const showCloud = r => { $('#cloudOut').innerHTML = r.cloud ? `<div class="row"><a class="btn" href="${esc(r.url)}" target="_blank">فتح تقاريري</a><button class="btn s" id="cCp">نسخ الرابط</button></div><div class="mut" style="margin-top:4px">احفظ الرابط في جوالك ولا تشاركه: من يملكه يرى التقارير.</div>` : '';
     const b = $('#cCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(r.url); b.textContent = '✓ نُسخ'; }; };
   if (st.cloud) chrome.runtime.sendMessage({ t: 'cloudLink' }).then(showCloud);
+  const showCtl = r => { $('#ctlOut').innerHTML = r.on ? `<div class="row"><a class="btn" href="${esc(r.url)}" target="_blank">فتح</a><button class="btn s" id="ctlCp">نسخ الرابط</button>${st.waPhone ? `<a class="btn s" target="_blank" href="https://wa.me/${esc(waNum(st.waPhone))}?text=${encodeURIComponent('رابط التحكم بحصصي (حاضر المعلم):\n' + r.url)}">أرسله لجوالي واتساب</a>` : ''}</div>
+      <div class="mut" style="margin-top:4px">افتحه على جوالك وأضفه للشاشة الرئيسية. لا تشاركه: من يملكه يتحكم بحصتك. لإبطاله أوقف التفعيل ثم فعّله من جديد.</div>` : '';
+    const b = $('#ctlCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(r.url); b.textContent = '✓ نُسخ'; }; };
+  if (st.ctlToken) chrome.runtime.sendMessage({ t: 'ctlLink' }).then(showCtl);
+  $('#sCtl').onchange = async e => showCtl(await chrome.runtime.sendMessage({ t: 'ctlLink', enable: e.target.checked }));
   $('#sCloud').onchange = async e => showCloud(await chrome.runtime.sendMessage({ t: 'cloudLink', enable: e.target.checked }));
   $('#upChk').onclick = async () => { $('#upMsg').textContent = '...'; const r = await chrome.runtime.sendMessage({ t: 'checkUpdate' });
     $('#upMsg').textContent = !r.ok ? r.err : r.newer ? 'يوجد إصدار ' + r.version : 'لديك آخر إصدار'; render(); };

@@ -373,25 +373,54 @@
     return { ok: await click(L.allowMic) };
   }
 
+  async function runCmd(m) {
+    if (m.c === 'muteAll') { await openPeople(); const ok = await click(L.muteAll); if (ok) await click(L.muteConfirm, dialog()); return { ok }; }
+    if (m.c === 'relock') { await patch({ locked: { mute: false, mic: false, cam: false }, phase: 'lock' }); ctx.tries = 0; return { ok: true }; }
+    if (m.c === 'teacherIn') { ctx.manualTeacher = true; return { ok: true }; }
+    if (m.c === 'allow') return await allow(m.name || '');
+    if (m.c === 'status') { await openPeople(); const ppl = (readPeople() || []).filter(p => !p.self && !isTeacher(p.name)).map(p => p.name);
+      const absent = (ctx.roster || []).filter(n => !ppl.some(x => sim(x, n))); return { ok: true, people: ppl, absent, hands: [...ctx.handsNow] }; }
+    if (m.c === 'video') { if (ctx.video) send({ t: 'video', url: ctx.video, active: !!m.remote }); return { ok: !!ctx.video, err: ctx.video ? '' : 'لا يوجد رابط مقطع لهذه الحصة' }; }
+    if (m.c === 'end') { await finish(); return { ok: true }; }
+    if (m.c === 'ask') return await ask(m.text || null);
+    if (m.c === 'shareTab') return await shareTab(m.streamId);
+    if (m.c === 'stopShare') return { ok: await click(L.stopShare) };
+    if (m.c === 'diag') return { ok: true, diag: await diag() };
+    if (m.c === 'summary') { const t = lessonSummary(); await patch({ summary: t }); return { ok: await postChat(t), text: t }; }
+    return { ok: false };
+  }
   chrome.runtime.onMessage.addListener((m, _, reply) => {
     if (!ctx || m.t !== 'cmd') return;
-    (async () => {
-      if (m.c === 'muteAll') { await openPeople(); const ok = await click(L.muteAll); if (ok) await click(L.muteConfirm, dialog()); reply({ ok }); }
-      else if (m.c === 'relock') { await patch({ locked: { mute: false, mic: false, cam: false }, phase: 'lock' }); ctx.tries = 0; reply({ ok: true }); }
-      else if (m.c === 'teacherIn') { ctx.manualTeacher = true; reply({ ok: true }); }
-      else if (m.c === 'allow') reply(await allow(m.name || ''));
-      else if (m.c === 'status') { const ppl = (readPeople() || []).filter(p => !p.self && !isTeacher(p.name)); reply({ ok: true, people: ppl.map(p => p.name), hands: [...ctx.handsNow] }); }
-      else if (m.c === 'video') { if (ctx.video) send({ t: 'video', url: ctx.video }); reply({ ok: !!ctx.video, err: ctx.video ? '' : 'لا يوجد رابط مقطع' }); }
-      else if (m.c === 'end') { await finish(); reply({ ok: true }); }
-      else if (m.c === 'ask') reply(await ask(m.text || null));
-      else if (m.c === 'shareTab') reply(await shareTab(m.streamId));
-      else if (m.c === 'stopShare') reply({ ok: await click(L.stopShare) });
-      else if (m.c === 'diag') reply({ ok: true, diag: await diag() });
-      else if (m.c === 'summary') { const t = lessonSummary(); await patch({ summary: t }); reply({ ok: await postChat(t), text: t }); }
-      else reply({ ok: false });
-    })();
+    runCmd(m).then(reply, e => reply({ ok: false, err: String(e) }));
     return true;
   });
+
+  // التحكم من الجوال: يسأل عن أمر جديد كل 3 ثوانٍ، ويرفع حالة الحصة كل 15 ثانية أو بعد كل أمر
+  async function remoteLoop() {
+    if (!ctx.st.ctlToken) return;
+    let after = Date.now(), lastPush = 0, ack = null, busy = false;
+    const state = () => {
+      let ppl = []; try { ppl = (readPeople() || []).filter(p => !p.self && !isTeacher(p.name)).map(p => p.name); } catch (e) {}
+      const roster = ctx.roster || [], absent = roster.length ? roster.filter(n => !ppl.some(x => sim(x, n))).length : null;
+      return { teacher: ctx.st.teacherName || '', cls: ctx.s.cls, lesson: ctx.s.lesson, start: ctx.s.start, phase: ctx.s.phase, teacherSeen: ctx.s.teacherSeen || (ctx.manualTeacher ? hhmm() : null),
+        left: Math.max(0, Math.round(ctx.s.dur - minsSince())), present: ppl.length, absent, hands: [...ctx.handsNow], chat: (ctx.s.chat || []).slice(-3).map(c => ({ who: c.who, txt: String(c.txt).slice(0, 120) })), ack };
+    };
+    const push = () => { lastPush = Date.now(); return send({ t: 'ctlState', state: state() }).catch(() => {}); };
+    const tickR = async () => {
+      if (busy) return; busy = true;
+      try {
+        const r = await send({ t: 'ctlPoll', after });
+        if (r && r.cmd && r.cmd.id > after) {
+          after = r.cmd.id; log('📱 أمر من الجوال: ' + r.cmd.c);
+          let res; try { res = await runCmd({ ...r.cmd, remote: true }); } catch (e) { res = { ok: false, err: String(e) }; }
+          ack = { id: r.cmd.id, ...res, people: res.people, absent: res.absent }; await push();
+        } else if (Date.now() - lastPush > 15000) await push();
+      } catch (e) {}
+      busy = false;
+      if (['done', 'stopped'].includes(ctx.s.phase)) { await push(); clearInterval(iv); }
+    };
+    const iv = setInterval(tickR, 3000); push();
+  }
 
   async function init() {
     let r; try { r = await send({ t: 'whoami' }); } catch (e) { return; }
@@ -409,6 +438,7 @@
       if (!['done', 'stopped'].includes(ctx.s.phase)) setTimeout(loop, ctx.s.phase === 'live' ? 15000 : 2500);
     };
     loop();
+    remoteLoop();
   }
   init();
 })();
