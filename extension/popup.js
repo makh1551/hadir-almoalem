@@ -168,13 +168,24 @@ async function vClasses() {
   const shown = [...classes].filter(c => !c.date || c.date >= now)
     .sort((a, b) => (a.date || '0' + a.day).localeCompare(b.date || '0' + b.day) || a.start.localeCompare(b.start));
   h = (await tableEditor()) + `<details class="card"><summary><b>➕ حصة مفردة أو تعديل حصة</b></summary>` + h.replace('<div class="card"><b>إضافة حصة</b>', '<div>') + `</details>`;
-  for (const c of shown) {
+  // حصص التقويم القديمة تُطوى (المصدر الآن الجدول الأسبوعي) مع زر حذفها كلها
+  const stv = await get('settings'), calOld = stv.source !== 'outlook' ? shown.filter(c => c.src === 'cal') : [];
+  const cardOf = c => { const when = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' }) : 'كل ' + DAYS[c.day];
+    return `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
+      <button class="btn s" data-tog="${c.id}">${c.skip ? '▶️ اختر' : '⏸ ألغِ'}</button><button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
+      <div class="mut">${esc(c.lesson || '')} ${c.video ? '· 🎬' : '· ⚠️ بلا مقطع'} ${c.link ? '' : '· ⚠️ بلا رابط'}</div></div>`; };
+  if (calOld.length) h += `<details class="card"><summary><b>📅 حصص سُحبت سابقًا من التقويم (${calOld.length})</b></summary>
+    <div class="mut" style="margin:6px 0">مصدر حصصك الآن «جدولي الأسبوعي». هذه من سحب التقويم القديم؛ احذفها إن لم تكن لك.</div>
+    <button class="btn r" id="calDel">🗑 احذفها كلها</button>${calOld.map(cardOf).join('')}</details>`;
+  for (const c of shown.filter(c => !calOld.includes(c))) {
+    h += cardOf(c); continue;
     const when = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' }) : 'كل ' + DAYS[c.day];
     h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
       <button class="btn s" data-tog="${c.id}">${c.skip ? '▶️ اختر' : '⏸ ألغِ'}</button><button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
       <div class="mut">${esc(c.lesson || '')} ${c.video ? '· 🎬' : '· ⚠️ بلا مقطع'} ${c.link ? '' : '· ⚠️ بلا رابط'}</div></div>`;
   }
   $('#main').innerHTML = h;
+  if ($('#calDel')) $('#calDel').onclick = async () => { if (!confirm(`حذف ${calOld.length} حصة من التقويم القديم؟`)) return; const cl = await get('classes'); await set('classes', cl.filter(c => c.src !== 'cal')); render(); };
   let editId = null;
   const setCls = v => { const sel = $('#cClsSel'), inp = $('#cCls'); inp.value = v || '';
     if (!v) { sel.value = ''; inp.style.display = 'none'; } else if (clsNames.includes(v)) { sel.value = v; inp.style.display = 'none'; } else { sel.value = '__new'; inp.style.display = ''; } };
@@ -225,6 +236,7 @@ async function vClasses() {
 const PERIODS = { times: ['07:45', '08:25', '09:05', '09:45', '10:25', '11:05', '11:45'], dur: 39 };
 async function tableEditor() {
   const my = await get('myClasses'), per = { ...PERIODS, ...(await get('periods')) }, classes = await get('classes');
+  const pre = Object.keys(await get('rosters')).sort((a, b) => a.localeCompare(b, 'ar')).map(c => ({ cls: c, subject: '', link: '' }));
   const cell = {}; classes.filter(c => c.src === 'table').forEach(c => cell[c.day + '-' + c.p] = c.cls);
   const SH = { 'الأول': '1', 'الاول': '1', 'الثاني': '2', 'الثالث': '3', 'الرابع': '4', 'الخامس': '5', 'السادس': '6' };
   const short = n => n.replace(/^(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)\s*/, (_, g) => SH[g] + ' ');
@@ -234,7 +246,8 @@ async function tableEditor() {
     <div class="mut" style="margin:4px 0">مرة واحدة: صفوفك وروابطها، ثم حصصك. يتكرر كل أسبوع، وتُفتح كل حصة آليًا في موعدها.</div>
     <b style="font-size:14px">١. صفوفي</b>
     <div class="mut">لكل صف: أنشئ في Teams <b>اجتماعًا متكررًا</b> (يوميًا، أيام الدوام) أو اجتماع قناة الصف، وانسخ رابطه هنا مرة واحدة.</div>
-    <div id="myList">${(my.length ? my : [{ cls: '', subject: '', link: '' }]).map(myRow).join('')}</div>
+    ${!my.length && pre.length ? `<div class="mut" style="color:var(--grn)">✓ أضفت صفوفك المحفوظة (${pre.length}) — الصق رابط كل صف واكتب المادة ثم احفظ.</div>` : ''}
+    <div id="myList">${(my.length ? my : pre.length ? pre : [{ cls: '', subject: '', link: '' }]).map(myRow).join('')}</div>
     <button class="btn s" id="myAdd" style="margin-top:4px">➕ صف آخر</button>
     <b style="font-size:14px;display:block;margin-top:10px">٢. حصصي</b>
     ${my.length ? `<div style="overflow-x:auto"><table class="tt"><tr><th>الحصة</th>${DAYS.map(d => `<th>${d}</th>`).join('')}</tr>
@@ -457,6 +470,7 @@ function cleanNames(lines) {
 // اسم صف موحّد: «الصف السادس الابتدائي» + «1» ← «السادس أ»
 function normCls(grade, sec) {
   let g = String(grade || '').replace(/الصف|الابتدائي|الإبتدائي|ابتدائي|المتوسط|متوسط|الثانوي|ثانوي/g, ' ').replace(/\s+/g, ' ').trim();
+  g = g.replace(/(^|\s)(أول|اول|ثاني|ثالث|رابع|خامس|سادس)(?=\s|$)/, (_, a, w) => a + 'ال' + w.replace(/^اول$/, 'أول'));
   const m = g.match(/(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)\s*(\S{1,2})?$/);
   let s = String(sec ?? '').trim() || (m && m[2]) || '';
   if (/^\d+$/.test(s)) s = SEC[Number(s) - 1] || s;
