@@ -22,7 +22,7 @@ powercfg /change hibernate-timeout-ac 0 >nul 2>&1
 powercfg /change monitor-timeout-ac 30 >nul 2>&1
 
 echo  [3/5] Open Chrome with Teams automatically when Windows starts ...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=@(\"$env:ProgramFiles\Google\Chrome\Application\chrome.exe\",\"${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe\",\"$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe\") | Where-Object { Test-Path $_ } | Select-Object -First 1; if ($c) { $s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\Hadir Classes.lnk'); $s.TargetPath=$c; $s.Arguments='--restore-last-session https://teams.microsoft.com/v2/'; $s.Save(); 'ok' } else { 'nochrome' }" > "%TEMP%\hadir-chrome.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=@(\"$env:ProgramFiles\Google\Chrome\Application\chrome.exe\",\"${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe\",\"$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe\") | Where-Object { Test-Path $_ } | Select-Object -First 1; if ($c) { $s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\Hadir Classes.lnk'); $s.TargetPath=$c; $s.Arguments='--restore-last-session --auto-select-tab-capture-source-by-title=YouTube --autoplay-policy=no-user-gesture-required https://teams.microsoft.com/v2/'; $s.Save(); 'ok' } else { 'nochrome' }" > "%TEMP%\hadir-chrome.txt"
 findstr /c:"nochrome" "%TEMP%\hadir-chrome.txt" >nul && echo   WARNING: Chrome was not found. Install Google Chrome, then run this file again.
 
 echo  [4/5] Chrome settings for classes (no tab sleeping, Teams camera/mic allowed) ...

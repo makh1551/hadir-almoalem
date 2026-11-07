@@ -57,7 +57,34 @@ async function openVideo(m) {
   const runs = await get('runs'), r = runs[m.id];
   const v = await chrome.tabs.create({ url: m.video, active: true });
   await mutate('runs', rr => { if (rr[m.id]) rr[m.id].videoTab = v.id; });
-  note('🎬 فُتح مقطع الدرس. لعرضه للطلاب في Teams اضغط Ctrl+Shift+1');
+  setTimeout(() => autoShare(m.id), 7000);
+}
+
+// ===== عرض المقطع داخل Teams آليًا =====
+// يشغّل المقطع ويضغط «مشاركة» في Teams بلمسة «مستخدم» عبر واجهة المطوّر في Chrome،
+// فيختار Chrome تبويب المقطع تلقائيًا على جهاز الحصص (مفتاح التشغيل --auto-select-tab-capture-source-by-title=YouTube)،
+// وفي غيره تظهر نافذة اختيار المشاركة: اختر تبويب المقطع.
+async function cdp(tabId, expr) {
+  const t = { tabId };
+  try { await chrome.debugger.attach(t, '1.3'); } catch (e) { if (!/already attached/i.test(e.message)) throw e; }
+  try { const r = await chrome.debugger.sendCommand(t, 'Runtime.evaluate', { expression: expr, userGesture: true, awaitPromise: true, returnByValue: true }); return r?.result?.value; }
+  finally { try { await chrome.debugger.detach(t); } catch (e) {} }
+}
+const FIND = `(labels)=>{const n=s=>(s||'').replace(/\\s+/g,' ').trim();const v=e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0};
+  const els=[...document.querySelectorAll('button,[role="button"],[role="menuitem"],[role="menuitemradio"],[role="tab"],[role="option"]')].filter(v);
+  for(const w of labels){const e=els.find(x=>{const a=n(x.getAttribute('aria-label')),t=n(x.textContent);return (a===w||t===w||a.startsWith(w)||t.startsWith(w))&&!/دعوة|invite|إيقاف|Stop/i.test(a+' '+t)});if(e)return e}return null}`;
+async function autoShare(id) {
+  const runs = await get('runs'), r = runs[id]; if (!r || !r.videoTab || !['lock', 'live'].includes(r.phase)) return;
+  try {
+    // 1) شغّل المقطع (كتم الصوت لا يُفعَّل)
+    await cdp(r.videoTab, `(async()=>{for(let i=0;i<20;i++){const v=document.querySelector('video');if(v){v.muted=false;try{await v.play()}catch(e){}return !v.paused}await new Promise(r=>setTimeout(r,500))}return false})()`);
+    // 2) «مشاركة» في Teams ثم اختيار «علامة تبويب/الشاشة»
+    const ok = await cdp(r.tabId, `(async()=>{const f=${FIND};const s=f(['مشاركة المحتوى','مشاركة','Share content','Share']);if(!s)return 'noshare';s.click();
+      for(let i=0;i<12;i++){await new Promise(r=>setTimeout(r,500));const o=f(['علامة التبويب','علامة تبويب','Tab','الشاشة','شاشة','Screen','نافذة','Window']);if(o){o.click();break}}
+      for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,500));if(f(['إيقاف المشاركة','إيقاف العرض','Stop sharing','Stop presenting']))return 'shared'}return 'nopick'})()`);
+    note(ok === 'shared' ? '✅ المقطع يُعرض الآن للطلاب داخل Teams' : ok === 'noshare' ? 'لم أجد زر «مشاركة» في Teams – اعرض المقطع يدويًا.' : 'اختر تبويب المقطع في نافذة المشاركة (أو اضغط Ctrl+Shift+1).');
+    if (ok === 'shared') chrome.tabs.update(r.tabId, { active: true });
+  } catch (e) { note('تعذّر عرض المقطع آليًا: ' + e.message + ' – اضغط Ctrl+Shift+1'); }
 }
 
 // ===== الرسائل =====
