@@ -10,7 +10,7 @@
     endMeeting: ['إنهاء الاجتماع', 'End meeting', 'إنهاء الاجتماع للجميع', 'End meeting for everyone'],
     endConfirm: ['إنهاء', 'End'],
     people: ['أشخاص', 'People', 'المشاركون', 'Participants'],
-    muteAll: ['كتم صوت الجميع', 'Mute all'],
+    muteAll: ['كتم صوت الكل', 'كتم صوت الجميع', 'Mute all'],
     muteConfirm: ['كتم الصوت', 'Mute'],
     disMic: ['تعطيل الميكروفون للحضور', 'Disable mic for attendees', 'منع الحضور من إلغاء كتم الصوت', "Don't allow attendees to unmute"],
     disCam: ['تعطيل الكاميرا للحضور', 'Disable camera for attendees', 'منع الحضور من تشغيل الكاميرا', "Don't allow attendees to turn on video"],
@@ -88,7 +88,35 @@
     badgeEl.textContent = '🎓 حاضر المعلم — ' + txt;
   }
   const inMeeting = () => !!findBtn(L.leave);
-  async function openPeople() { await click(L.people); await sleep(1500); }
+  // لوحة المشاركين: افتحها فقط إن كانت مغلقة (الضغط مرة ثانية يغلقها)
+  const peopleHeading = () => [...document.querySelectorAll('h1,h2,h3,[role="heading"],span,div')].find(e => vis(e) && e.children.length === 0 && /^(المشاركون|Participants|People)$/.test(norm(e.textContent)));
+  async function openPeople() { if (peopleHeading()) return true; await click(L.people); await sleep(1800); return !!peopleHeading(); }
+  // زر «…» في رأس لوحة المشاركين
+  function participantsMoreBtn() {
+    const h = peopleHeading(); if (!h) return null;
+    let box = h.parentElement;
+    for (let i = 0; i < 5 && box; i++, box = box.parentElement) {
+      const b = [...box.querySelectorAll('button,[role="button"]')].filter(x => vis(x) && !DANGER.test(labelOf(x)) && (L.more.map(norm).some(w => labelOf(x).includes(w)) || /^\W*$/.test(norm(x.textContent)) && !/إغلاق|close/i.test(labelOf(x))));
+      if (b.length) return b[0];
+    }
+    return null;
+  }
+  // عنصر في القائمة المفتوحة حسب نصه
+  function menuItem(labels) {
+    const ws = labels.map(norm);
+    const els = [...document.querySelectorAll('[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="menu"] button,[role="menu"] [role="option"]')].filter(vis);
+    for (const w of ws) { const e = els.find(x => norm(x.textContent) === w || norm(x.textContent).startsWith(w) || norm(x.getAttribute('aria-label')).startsWith(w)); if (e) return e; }
+    return null;
+  }
+  // زر تأكيد في نافذة الحوار بنصه الدقيق (لا يضغط عنوان الحوار نفسه)
+  async function confirmDialog(words) {
+    for (let i = 0; i < 6; i++) {
+      const d = [...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].filter(vis).pop();
+      if (d) { const b = [...d.querySelectorAll('button')].filter(vis).find(x => words.includes(norm(x.textContent))); if (b) { press(b); await sleep(1000); return true; } }
+      await sleep(500);
+    }
+    return false;
+  }
 
   // 1) الدخول: يستمر حتى يدخل فعلًا (صفحة «جارٍ الاتصال» وغرفة الانتظار قد تأخذ دقائق)
   async function join() {
@@ -144,29 +172,35 @@
     if (changed) await click(L.save);
     if (lk.mic) lk.mute = true; // من لا يملك المايك لا يحتاج كتمًا
     await sleep(800);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await click(L.people);
+    esc();
+    await openPeople();
   }
 
-  // 2) تعطيل المايك والكاميرا للحضور (+ كتم الجميع)
-  async function lock() {
-    const lk = { mute: false, mic: false, cam: false };
-    for (let i = 1; i <= 8 && !(lk.mic && lk.cam); i++) {
-      await openPeople();
-      if (!lk.mute && (await click(L.muteAll))) { await click(L.muteConfirm, dialog()); lk.mute = true; }
-      for (const [k, lbl] of [['mic', L.disMic], ['cam', L.disCam]]) {
+  // 2) تعطيل المايك والكاميرا للحضور (+ كتم الجميع) من قائمة «…» في لوحة المشاركين، ثم «خيارات الاجتماع» احتياطًا
+  const lk = { mute: false, mic: false, cam: false };   // حالة القفل طوال الحصة
+  async function lock(tries = 3) {
+    for (let i = 1; i <= tries && !(lk.mic && lk.cam); i++) {
+      closeLeaveMenu();
+      badge('أفتح لوحة المشاركين…'); await openPeople();
+      if (!lk.mute) { const mb = [...document.querySelectorAll('button')].filter(vis).find(b => L.muteAll.map(norm).includes(norm(b.textContent)));
+        if (mb) { badge('كتم الجميع…'); press(mb); await sleep(900); await confirmDialog(['كتم الصوت', 'كتم', 'كتم صوت الكل', 'Mute', 'Mute all']); lk.mute = true; } }
+      for (const [k, dis, allow] of [['mic', L.disMic, L.allowMic], ['cam', L.disCam, L.allowCam]]) {
         if (lk[k]) continue;
-        const moreBtns = [...document.querySelectorAll('button,[role="button"]')].filter(b => vis(b) && !DANGER.test(labelOf(b)) && L.more.map(norm).some(w => norm(b.getAttribute('aria-label')).includes(w)));
-        for (const mb of moreBtns) {
-          mb.click(); await sleep(700);
-          if (await click(lbl)) { await click(L.disable, dialog()); lk[k] = true; break; }
-          esc(); await sleep(300); closeLeaveMenu();
-        }
+        const more = participantsMoreBtn(); if (!more) break;
+        press(more); await sleep(900);
+        if (menuItem(allow)) { lk[k] = true; esc(); await sleep(400); continue; }   // معطّل مسبقًا
+        const it = menuItem(dis);
+        if (it) { badge(k === 'mic' ? 'تعطيل الميكروفون للحضور…' : 'تعطيل الكاميرا للحضور…'); press(it); await sleep(1000);
+          await confirmDialog(['تعطيل', 'Disable', 'عدم السماح', "Don't allow"]); lk[k] = true; }
+        else esc();
+        await sleep(600);
       }
+      // تحقّق: افتح القائمة مرة وتأكد أن الخيارين صارا «السماح…»
+      const more = participantsMoreBtn();
+      if (more && (lk.mic || lk.cam)) { press(more); await sleep(900); lk.mic = lk.mic && !!menuItem(L.allowMic); lk.cam = lk.cam && !!menuItem(L.allowCam); esc(); await sleep(400); }
       closeLeaveMenu();
-      if (!lk.mic || !lk.cam) await meetingOptionsLock(lk);
-      closeLeaveMenu();
-      if (!(lk.mic && lk.cam)) await sleep(4000);
+      if (!lk.mic || !lk.cam) { badge('أجرّب «خيارات الاجتماع»…'); await meetingOptionsLock(lk); closeLeaveMenu(); }
+      if (!(lk.mic && lk.cam)) await sleep(3000);
     }
     return lk.mic && lk.cam;
   }
@@ -221,15 +255,18 @@
       if (!inMeeting()) return;
     }
     await state({ phase: 'lock' }); badge('دخلت – جارٍ تعطيل المايك والكاميرا…');
-    const ok = await lock();
+    let ok = await lock(2);
     await state({ phase: 'live', locked: ok });
-    badge(ok ? 'المايك والكاميرا معطّلان للحضور' : 'تعذّر التعطيل الكامل');
-    note(ok ? `«${ctx.m.title}» جاهزة: المايك والكاميرا معطّلان للحضور` : `تعذّر تعطيل المايك/الكاميرا في «${ctx.m.title}». عطّلهما من: المزيد ← خيارات الاجتماع.`);
+    badge(ok ? 'المايك والكاميرا معطّلان للحضور' : 'بانتظار دخول الطلاب لتعطيل المايك والكاميرا…');
+    note(ok ? `«${ctx.m.title}» جاهزة: المايك والكاميرا معطّلان للحضور` : `دخلتُ «${ctx.m.title}». سأعطّل المايك والكاميرا فور دخول أول طالب.`);
+    let notedLock = ok;
     send({ t: 'ready', id: ctx.m.id });
     // الإغلاق عند نهاية الحصة، وإعادة الدخول إن انقطع
     let warned = false, reconnects = 0;
     while (true) {
-      await sleep(15000);
+      await sleep(ok ? 15000 : 5000);
+      // خيار التعطيل يظهر في Teams بعد دخول الحضور: جرّب كلما دخل أحد حتى ينجح
+      if (!ok && inMeeting()) { ok = await lock(1); if (ok && !notedLock) { notedLock = true; await state({ locked: true }); badge('المايك والكاميرا معطّلان للحضور'); note(`«${ctx.m.title}»: عُطّل المايك والكاميرا للحضور`); } }
       const left = endAt() - Date.now();
       if (!warned && left <= 120000 && left > 0) { warned = true; note(`«${ctx.m.title}» تنتهي بعد دقيقتين وسيُغلق الاجتماع.`); }
       if (left <= 0) {
