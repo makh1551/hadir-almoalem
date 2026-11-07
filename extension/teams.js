@@ -81,10 +81,19 @@
   // 1) الدخول: يستمر حتى يدخل فعلًا (صفحة «جارٍ الاتصال» وغرفة الانتظار قد تأخذ دقائق)
   async function join() {
     const deadline = Math.min(Date.now() + 8 * 60000, endAt() - 60000);
-    let lastPress = 0, noted = false;
+    let lastPress = 0, noted = false, avTries = 0;
     while (Date.now() < deadline) {
       if (inMeeting()) return true;
-      if ((await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV))) { await sleep(1500); continue; }
+      if ((await click(L.rejoin)) || (await click(L.continueBrowser))) { badge('أتابع في المتصفح…'); await sleep(1500); continue; }
+      // رسالة «هل أنت متأكد أنك لا تريد الصوت أو الفيديو؟» تظهر عند منع المايك/الكاميرا عن Teams
+      const av = findBtn(L.noAV) || [...document.querySelectorAll('button,[role="button"]')].find(b => vis(b) && /بدون استخدام الصوت|without audio or video/i.test(b.textContent || ''));
+      if (av) {
+        avTries = (avTries || 0) + 1; badge('أتجاوز رسالة الصوت والفيديو (' + avTries + ')');
+        press(av); await sleep(400); try { av.click(); } catch (e) {}
+        if (avTries % 3 === 0) { av.focus(); av.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true })); }
+        if (avTries === 6) note('Teams يسأل عن الصوت والفيديو: اسمح للكاميرا والميكروفون لموقع Teams (أيقونة القفل بجانب العنوان) لتختفي هذه الرسالة نهائيًا.');
+        await sleep(2000); continue;
+      }
       const jb = findBtn(L.joinNow);
       if (jb && !(jb.disabled || jb.getAttribute('aria-disabled') === 'true') && Date.now() - lastPress > 10000) {
         press(jb); lastPress = Date.now(); await sleep(1500);
