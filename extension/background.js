@@ -48,7 +48,13 @@ const vnum = v => String(v || '0').split('.').map(Number).reduce((a, x) => a * 1
 const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
 
 function ensureAlarm() { chrome.alarms.create('tick', { periodInMinutes: 1 }); }
-chrome.runtime.onInstalled.addListener(() => { ensureAlarm(); });
+chrome.runtime.onInstalled.addListener(async () => {
+  ensureAlarm();
+  // توحيد أسماء الصفوف المحفوظة: «سادس ج» ← «السادس ج» (لتطابق جدول مدرستي)
+  const fix = n => n.replace(/^(أول|اول|ثاني|ثالث|رابع|خامس|سادس)(?=\s)/, w => 'ال' + (w === 'اول' ? 'أول' : w));
+  for (const k of ['rosters', 'autoRosters']) { const r = (await chrome.storage.local.get(k))[k]; if (!r) continue; let ch = 0;
+    for (const n of Object.keys(r)) { const m = fix(n); if (m !== n) { r[m] = r[m] || r[n]; delete r[n]; ch = 1; } } if (ch) await chrome.storage.local.set({ [k]: r }); }
+});
 chrome.runtime.onStartup.addListener(async () => { ensureAlarm(); if ((await get('settings')).source === 'outlook') startSync(); });
 chrome.storage.local.get('justUpdated').then(o => { if (o.justUpdated) { note('✅ حُدِّث حاضر المعلم إلى ' + o.justUpdated + ' تلقائيًا'); chrome.storage.local.remove('justUpdated'); ensureAlarm(); } });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tick') tick(); });

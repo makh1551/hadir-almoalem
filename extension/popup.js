@@ -244,6 +244,7 @@ async function tableEditor() {
   setTimeout(bindTable, 0);
   return `<div class="card"><b>📅 جدولي الأسبوعي</b>
     <div class="mut" style="margin:4px 0">مرة واحدة: صفوفك وروابطها، ثم حصصك. يتكرر كل أسبوع، وتُفتح كل حصة آليًا في موعدها.</div>
+    <div class="row" style="margin:6px 0"><button class="btn" id="ttMad">📥 اسحب جدولي من مدرستي</button><span class="mut" id="ttMadMsg">افتح «الجدول الأسبوعي للمعلم» في مدرستي أولًا</span></div>
     <b style="font-size:14px">١. صفوفي</b>
     <div class="mut">لكل صف: أنشئ في Teams <b>اجتماعًا متكررًا</b> (يوميًا، أيام الدوام) أو اجتماع قناة الصف، وانسخ رابطه هنا مرة واحدة.</div>
     ${!my.length && pre.length ? `<div class="mut" style="color:var(--grn)">✓ أضفت صفوفك المحفوظة (${pre.length}) — الصق رابط كل صف واكتب المادة ثم احفظ.</div>` : ''}
@@ -262,7 +263,54 @@ function myRow(m) {
     <div><label>المادة</label><input class="mSub" value="${esc(m.subject || '')}" placeholder="لغتي"></div>
     <div class="full"><label>رابط اجتماع Teams الثابت</label><div class="row"><input class="mLink" value="${esc(m.link || '')}" placeholder="https://teams.microsoft.com/..." style="flex:1"><button class="btn r mDel" title="حذف">✕</button></div></div></div>`;
 }
+// يُحقن في صفحة «الجدول الأسبوعي للمعلم» في مدرستي: يقرأ (اليوم، الحصة، الصف، المادة)
+function scrapeTeacherSchedule() {
+  const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+  const ORD = ['الأولى', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة', 'السابعة', 'الثامنة'];
+  const out = [];
+  for (const t of document.querySelectorAll('table')) {
+    const rows = [...t.querySelectorAll('tr')]; if (rows.length < 2) continue;
+    const head = [...rows[0].children].map(c => c.innerText.trim());
+    const pIdx = head.map(h => ORD.findIndex(o => h.includes(o)));
+    if (pIdx.filter(i => i >= 0).length < 3) continue;
+    for (const tr of rows.slice(1)) {
+      const cells = [...tr.children]; const dn = cells.map(c => c.innerText.trim()).findIndex(x => DAYS.some(d => x.startsWith(d)));
+      if (dn < 0) continue; const d = DAYS.findIndex(x => cells[dn].innerText.trim().startsWith(x));
+      cells.forEach((c, i) => {
+        const p = pIdx[i]; if (p == null || p < 0) return;
+        const lines = c.innerText.split('\n').map(x => x.trim()).filter(Boolean); if (!lines.length) return;
+        const cl = lines.find(x => /^الصف\s/.test(x) || /(الأول|الثاني|الثالث|الرابع|الخامس|السادس)\s+\S{1,2}$/.test(x));
+        if (!cl) return;
+        const subject = lines.find(x => x !== cl && !/إعداد|نشاط|الدرس$/.test(x)) || '';
+        out.push({ d, p, cls: cl.replace(/^الصف\s+/, '').trim(), subject });
+      });
+    }
+    if (out.length) break;
+  }
+  return out;
+}
+async function pullMadSchedule() {
+  const msg = $('#ttMadMsg');
+  const tabs = await chrome.tabs.query({ url: 'https://schools.madrasati.sa/*' });
+  const tab = tabs.find(t => /TeacherSchedule/i.test(t.url)) || tabs[0];
+  if (!tab) { msg.textContent = 'افتح «الجدول الأسبوعي للمعلم» في منصة مدرستي (المقررات والمصادر ← الجدول الدراسي) ثم أعد الضغط'; return; }
+  let list = [];
+  try { const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: scrapeTeacherSchedule }); list = res.flatMap(r => r.result || []); }
+  catch (e) { msg.textContent = 'تعذّرت قراءة صفحة مدرستي'; return; }
+  if (!list.length) { msg.textContent = 'لم أجد الجدول. افتح «الجدول الأسبوعي» (لا اليومي) في صفحة مدرستي ثم أعد المحاولة'; return; }
+  const my = await get('myClasses'); const by = Object.fromEntries(my.map(m => [m.cls, m]));
+  for (const x of list) if (!by[x.cls]) { by[x.cls] = { cls: x.cls, subject: x.subject, link: '' }; my.push(by[x.cls]); } else if (!by[x.cls].subject) by[x.cls].subject = x.subject;
+  await set('myClasses', my);
+  const per = { ...PERIODS, ...(await get('periods')) }, cl = await get('classes'), old = Object.fromEntries(cl.filter(c => c.src === 'table').map(c => [c.id, c]));
+  const fresh = list.filter(x => x.p < per.times.length).map(x => { const id = 'tb-' + x.d + '-' + x.p, o = old[id] || {}, m = by[x.cls];
+    return { ...o, id, src: 'table', day: x.d, p: x.p, start: per.times[x.p], dur: per.dur, cls: x.cls, lesson: o.cls === x.cls && o.lesson ? o.lesson : m.subject, link: m.link, video: o.cls === x.cls ? o.video || '' : '', questions: o.cls === x.cls ? o.questions || '' : '' }; });
+  await set('classes', [...cl.filter(c => c.src !== 'table'), ...fresh]);
+  const noLink = my.filter(m => !m.link).length;
+  msg.textContent = `✓ سُحبت ${fresh.length} حصة لـ ${new Set(list.map(x => x.cls)).size} صف` + (noLink ? ` — الصق الآن رابط Teams لكل صف ثم «حفظ الجدول»` : '');
+  setTimeout(render, 1500);
+}
 function bindTable() {
+  if ($('#ttMad')) $('#ttMad').onclick = pullMadSchedule;
   if (!$('#myAdd') || $('#myAdd').dataset.b) return; $('#myAdd').dataset.b = 1;
   const del = () => document.querySelectorAll('.mDel').forEach(b => b.onclick = () => b.closest('.myr').remove()); del();
   $('#myAdd').onclick = () => { $('#myList').insertAdjacentHTML('beforeend', myRow({ cls: '', subject: '', link: '' })); del(); };
