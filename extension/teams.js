@@ -1,7 +1,7 @@
 // حاضر المعلم 3 — داخل اجتماع Teams الذي فتحته الإضافة فقط: دخول ← تعطيل المايك والكاميرا ← (المقطع) ← إغلاق عند النهاية
 (() => {
   const L = {
-    continueBrowser: ['متابعة على هذا المتصفح', 'Continue on this browser', 'الانضمام على الويب', 'Join on the web'],
+    continueBrowser: ['المتابعة على هذا المستعرض', 'متابعة على هذا المستعرض', 'المتابعة على هذا المتصفح', 'متابعة على هذا المتصفح', 'Continue on this browser', 'الانضمام على الويب', 'Join on the web', 'Use the web app instead', 'استخدام تطبيق الويب بدلاً من ذلك'],
     noAV: ['المتابعة بدون استخدام الصوت أو الفيديو', 'Continue without audio or video'],
     joinNow: ['الانضمام الآن', 'Join now'],
     rejoin: ['إعادة الانضمام', 'Rejoin', 'انضمام مرة أخرى'],
