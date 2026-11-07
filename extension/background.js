@@ -13,6 +13,21 @@ const DEF = {
 };
 async function get(k) { const o = await chrome.storage.local.get(k); return o[k] ?? structuredClone(DEF[k]); }
 async function set(k, v) { await chrome.storage.local.set({ [k]: v }); }
+// تعديل متسلسل لمفتاح واحد: يمنع ضياع البيانات عند وصول تحديثين في اللحظة نفسها
+const Q = {};
+function mutate(k, fn) {
+  const run = (Q[k] || Promise.resolve()).then(async () => { const v = await get(k); const r = await fn(v); await set(k, v); return r; });
+  Q[k] = run.catch(() => {}); return run;
+}
+const CAP = { events: 150, chat: 300, hands: 200 };
+function capSession(s) { for (const [f, n] of Object.entries(CAP)) if (Array.isArray(s[f]) && s[f].length > n) s[f] = s[f].slice(-n); return s; }
+// تنظيف يومي: حذف الجلسات الأقدم من 60 يومًا وحصص التقويم المنقضية
+async function prune() {
+  const lim = ymd(new Date(Date.now() - 60 * 86400000)), y = ymd(new Date(Date.now() - 86400000));
+  await mutate('sessions', ss => { for (const k of Object.keys(ss)) if ((ss[k].day || '') < lim) delete ss[k]; else capSession(ss[k]); });
+  await mutate('classes', cl => { const keep = cl.filter(c => !c.date || c.date >= y); cl.length = 0; cl.push(...keep); });
+  await mutate('tabs', async tb => { const open = new Set((await chrome.tabs.query({})).map(t => String(t.id))); for (const id of Object.keys(tb)) if (!open.has(id)) delete tb[id]; });
+}
 const pad = n => String(n).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const today = () => ymd(new Date());
@@ -53,7 +68,7 @@ async function tick() {
     await set('sync', { ...sync, tabId: null, lastErr: 'انتهت مهلة السحب' });
   }
   // إعادة تحميل ذاتية إذا حدّث «مُحدِّث حاضر المعلم» الملفات على القرص (ولا توجد حصة جارية)
-  try {
+  if (d.getMinutes() % 5 === 0) try {
     const disk = await (await fetch(chrome.runtime.getURL('manifest.json') + '?t=' + Date.now(), { cache: 'no-store' })).json();
     const live = Object.values(sessions).some(x => x.day === day && ['join', 'lock', 'live'].includes(x.phase));
     if (disk.version && disk.version !== chrome.runtime.getManifest().version && !live) {
@@ -61,6 +76,8 @@ async function tick() {
       chrome.runtime.reload(); return;
     }
   } catch (e) {}
+  // تنظيف التخزين مرة يوميًا (يبقي الإضافة سريعة)
+  if ((await chrome.storage.local.get('pruned')).pruned !== day) { await chrome.storage.local.set({ pruned: day }); prune(); }
   // فحص التحديث كل 6 ساعات
   const up = await get('update');
   if (!up.checked || Date.now() - up.checked > 6 * 3600000) checkUpdate();
@@ -100,15 +117,13 @@ async function tick() {
 }
 
 async function openSession(c, key) {
-  const sessions = await get('sessions');
-  sessions[key] = {
+  await mutate('sessions', sessions => { sessions[key] = {
     classId: c.id, link: c.link, test: !!c.test, cls: c.cls || c.lesson || 'حصة', lesson: c.lesson || '', start: c.start, dur: Number(c.dur || 39),
     day: today(), phase: 'join', events: [], snaps: {}, chat: [], hands: [], seen: {},
     teacherSeen: null, locked: { mute: false, mic: false, cam: false }, report: null
-  };
-  await set('sessions', sessions);
+  }; });
   const tab = await chrome.tabs.create({ url: c.link, active: true });
-  const tabs = await get('tabs'); tabs[tab.id] = key; await set('tabs', tabs);
+  await mutate('tabs', tabs => { tabs[tab.id] = key; });
   note(`بدأت حصة ${c.cls || c.lesson} – جارٍ فتحها وتجهيزها`);
 }
 
@@ -207,8 +222,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'syncNow') {
       reply(await startSync());
     } else if (m.t === 'update') {
-      const ss = await get('sessions'); ss[m.key] = Object.assign(ss[m.key] || {}, m.patch); await set('sessions', ss);
-      const s = ss[m.key];
+      const s = await mutate('sessions', ss => { ss[m.key] = capSession(Object.assign(ss[m.key] || {}, m.patch)); return ss[m.key]; });
       if (m.patch.report && !s.test) cloudSync();
       if (m.patch.report && !s.test && s.cls) { // تعلّم أسماء الطلاب من الحصة
         const rosters = await get('rosters'), auto = await get('autoRosters');
@@ -242,13 +256,13 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
 chrome.tabs.onRemoved.addListener(async id => {
   const tabs = await get('tabs'); const key = tabs[id];
   if (key) {
-    delete tabs[id]; await set('tabs', tabs);
+    await mutate('tabs', tb => { delete tb[id]; });
     const ss = await get('sessions'); const s = ss[key];
     if (s && ['join', 'lock', 'live'].includes(s.phase) && s.day === today() && nowMin() < mins(s.start) + s.dur && (s.reopens || 0) < 1) {
       const c = (await get('classes')).find(x => x.id === s.classId) || { link: s.link };
       if (c.link) {
-        ss[key] = { ...s, reopens: (s.reopens || 0) + 1, phase: 'join' }; await set('sessions', ss);
-        const t = await chrome.tabs.create({ url: c.link, active: false }); const tb = await get('tabs'); tb[t.id] = key; await set('tabs', tb);
+        await mutate('sessions', s2 => { s2[key] = { ...s2[key], reopens: (s.reopens || 0) + 1, phase: 'join' }; });
+        const t = await chrome.tabs.create({ url: c.link, active: false }); await mutate('tabs', tb => { tb[t.id] = key; });
         note(`أُغلق تبويب حصة ${s.cls} فأعدت فتحه. لإيقاف المساعد اضغط «إنهاء» من الإضافة.`);
       }
     }

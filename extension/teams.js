@@ -37,12 +37,18 @@
   const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
+  // أسرع: يطابق النص أولًا ثم يفحص الظهور للمرشحين فقط (صفحة Teams فيها آلاف العناصر)
+  const SEL = 'button,[role="button"],[role="menuitem"],[role="menuitemcheckbox"],[role="tab"]';
   function findBtn(list, root = document) {
-    const els = [...root.querySelectorAll('button,[role="button"],[role="menuitem"],[role="menuitemcheckbox"],[role="tab"]')].filter(vis);
-    for (const w of list.map(norm)) {
-      const e = els.find(x => (norm(x.getAttribute('aria-label')) + ' | ' + norm(x.innerText)).includes(w));
-      if (e) return e;
+    const ws = list.map(norm), cands = [];
+    for (const x of root.querySelectorAll(SEL)) {
+      const al = x.getAttribute('aria-label'), tx = x.textContent;
+      if (!al && !tx) continue;
+      const s = norm(al) + ' | ' + norm(tx.length > 200 ? tx.slice(0, 200) : tx);
+      const i = ws.findIndex(w => s.includes(w)); if (i >= 0) cands.push([i, x]);
     }
+    cands.sort((a, b) => a[0] - b[0]);
+    for (const [, x] of cands) if (vis(x)) return x;
     return null;
   }
   // ضغط كامل يحاكي المؤشر (بعض واجهات Teams لا تستجيب لـ click() وحده)
