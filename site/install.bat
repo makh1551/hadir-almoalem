@@ -27,7 +27,7 @@ if not exist "%TMPD%\manifest.json" (
   exit /b 1
 )
 echo  [3/3] Copying to %EXT% ...
-robocopy "%TMPD%" "%EXT%" /MIR /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%TMPD%" "%EXT%" /MIR /R:2 /W:2 /NFL /NDL /NJH /NJS /NP >nul
 rmdir /s /q "%TMPD%" >nul 2>&1
 del /f /q "%ZIP%" >nul 2>&1
 if not exist "%EXT%\manifest.json" (
