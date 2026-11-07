@@ -6,7 +6,7 @@ const MAP = { '/': 'site/index.html', '/guide': 'site/guide/index.html', '/faq':
 const TYPES = { html: 'text/html; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', css: 'text/css', js: 'text/javascript', webmanifest: 'application/manifest+json' };
 const TOKEN = /^[a-z0-9]{24,40}$/;
 const json = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
-async function raw(path) { return fetch(RAW + path, { cf: { cacheTtl: 120, cacheEverything: true } }); }
+async function raw(path) { const fresh = /version\.json|\.zip$|\.bat$/.test(path); return fetch(RAW + path + (fresh ? '?t=' + Date.now() : ''), fresh ? { cf: { cacheTtl: 0 } } : { cf: { cacheTtl: 120, cacheEverything: true } }); }
 async function page(path) {
   const r = await raw(path);
   if (!r.ok) return new Response('غير موجود', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
