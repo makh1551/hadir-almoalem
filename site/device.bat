@@ -12,7 +12,9 @@ curl.exe -sSL --fail -o "%INS%" "https://hadir.wasl.uk/install.bat" >nul 2>&1
 if not exist "%INS%" powershell -NoProfile -Command "Invoke-WebRequest 'https://hadir.wasl.uk/install.bat' -OutFile '%INS%' -UseBasicParsing" >nul 2>&1
 if exist "%INS%" (call "%INS%" silent) else (echo   ERROR: could not download the installer)
 if not exist "%USERPROFILE%\HadirAlmoalem\update.bat" if exist "%INS%" copy /y "%INS%" "%USERPROFILE%\HadirAlmoalem\update.bat" >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$u=Join-Path $env:USERPROFILE 'HadirAlmoalem\update.bat'; try { $a=New-ScheduledTaskAction -Execute 'cmd.exe' -Argument ('/c start \"\" /min \"'+$u+'\" silent'); $tr=@((New-ScheduledTaskTrigger -Daily -At 6:00am),(New-ScheduledTaskTrigger -Daily -At 1:00pm)); Register-ScheduledTask -TaskName 'HadirAlmoalemUpdate' -Action $a -Trigger $tr -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) -Force | Out-Null } catch {}"
+echo        scheduling daily updates (6:00 AM, 1:00 PM) ...
+schtasks /Create /TN "HadirAlmoalemUpdate" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 06:00 /F >nul 2>&1
+schtasks /Create /TN "HadirAlmoalemUpdate2" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 13:00 /F >nul 2>&1
 
 echo  [2/5] Never sleep / hibernate while plugged in ...
 powercfg /change standby-timeout-ac 0 >nul 2>&1
