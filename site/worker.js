@@ -31,6 +31,10 @@ export default {
       return new Response(r.body, { headers: { 'content-type': 'application/zip', 'content-disposition': 'attachment; filename="hadir-almoalem.zip"', 'cache-control': 'no-cache' } });
     }
 
+    if (p === '/device.bat') {
+      const r = await raw('site/device.bat'); if (!r.ok) return new Response('غير متاح', { status: 502 });
+      return new Response(r.body, { headers: { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="hadir-device-setup.bat"', 'cache-control': 'no-cache' } });
+    }
     if (p === '/install.bat' || p === '/update.bat') {
       const r = await raw('site/install.bat'); if (!r.ok) return new Response('غير متاح', { status: 502 });
       return new Response(r.body, { headers: { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="hadir-install.bat"', 'cache-control': 'no-cache' } });
