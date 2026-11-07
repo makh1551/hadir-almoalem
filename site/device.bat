@@ -13,8 +13,8 @@ if not exist "%INS%" powershell -NoProfile -Command "Invoke-WebRequest 'https://
 if exist "%INS%" (call "%INS%" silent) else (echo   ERROR: could not download the installer)
 if not exist "%USERPROFILE%\HadirAlmoalem\update.bat" if exist "%INS%" copy /y "%INS%" "%USERPROFILE%\HadirAlmoalem\update.bat" >nul
 echo        scheduling daily updates (6:00 AM, 1:00 PM) ...
-schtasks /Create /TN "HadirAlmoalemUpdate" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 06:00 /F >nul 2>&1
-schtasks /Create /TN "HadirAlmoalemUpdate2" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 13:00 /F >nul 2>&1
+schtasks /Create /TN "HadirAlmoalemUpdate" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 06:00 /IT /F <nul >nul 2>&1
+schtasks /Create /TN "HadirAlmoalemUpdate2" /TR "cmd /c start \"\" /min \"%USERPROFILE%\HadirAlmoalem\update.bat\" silent" /SC DAILY /ST 13:00 /IT /F <nul >nul 2>&1
 
 echo  [2/5] Never sleep / hibernate while plugged in ...
 powercfg /change standby-timeout-ac 0 >nul 2>&1
@@ -52,7 +52,7 @@ reg add "HKCU\Software\Policies\Google\Chrome\VideoCaptureAllowedUrls" /v 1 /t R
 reg add "HKCU\Software\Policies\Google\Chrome\NotificationsAllowedForUrls" /v 1 /t REG_SZ /d "https://teams.microsoft.com" /f >nul 2>&1
 
 echo  [5/5] Restart this computer every night at 3:00 AM (fresh start) ...
-schtasks /Create /TN "HadirAlmoalemNightlyRestart" /TR "shutdown /r /t 60 /c \"Hadir Almoalem nightly restart\"" /SC DAILY /ST 03:00 /F >nul 2>&1
+schtasks /Create /TN "HadirAlmoalemNightlyRestart" /TR "shutdown /r /t 60 /c \"Hadir Almoalem nightly restart\"" /SC DAILY /ST 03:00 /IT /F <nul >nul 2>&1
 
 echo.
 echo  ===========================================================
