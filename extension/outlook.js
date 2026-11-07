@@ -76,6 +76,8 @@
       cfg.teacherName = acc ? norm(acc.textContent) : b ? norm(b.replace(/.*(Account manager for|مدير الحساب لـ?)\s*/, '')) : '';
     }
     const out = {};
+    const NEXT = ['الانتقال إلى الأسبوع التالي', 'Go to next week', 'الأسبوع التالي', 'Next week', 'الانتقال إلى الفترة الزمنية التالية', 'Go to next'];
+    if (cfg.skipFirst) { const nb = findBtn(NEXT); if (nb) { nb.click(); await sleep(4000); } }
     await scrapeVisible(cfg, out);
     for (let w = 1; w < (cfg.weeks || 2); w++) {
       const next = findBtn(['الانتقال إلى الأسبوع التالي', 'Go to next week', 'الأسبوع التالي', 'Next week', 'الانتقال إلى الفترة الزمنية التالية', 'Go to next']);

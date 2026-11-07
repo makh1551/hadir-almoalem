@@ -80,7 +80,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'note') { note(m.msg); reply(true); }
     else if (m.t === 'syncWho') {
       const sync = await get('sync'); if (sender.tab?.id !== sync.tabId) return reply(null);
-      reply({ teacherName: '', weeks: 1, known: {} });   // كل اجتماعات Teams في التقويم
+      reply({ teacherName: '', weeks: 1, skipFirst: new Date().getDay() >= 5, known: {} });   // الجمعة/السبت: الأسبوع القادم فقط   // كل اجتماعات Teams في التقويم
     } else if (m.t === 'calResult') {
       const sync = await get('sync'); if (sender.tab?.id !== sync.tabId) return reply(false);
       const n = await merge(m.events || []);
@@ -109,8 +109,7 @@ async function startSync() {
   const sync = await get('sync');
   if (sync.tabId) { try { await chrome.tabs.get(sync.tabId); return { ok: false, err: 'السحب يعمل الآن' }; } catch (e) {} }
   // افتح التقويم مباشرة على أسبوع الدوام المطلوب (الأسبوع القادم إذا كان اليوم جمعة أو سبت)
-  const [y, mo, da] = workDays()[0].split('-').map(Number);
-  const tab = await chrome.tabs.create({ url: `https://outlook.office.com/calendar/view/week/${y}/${mo}/${da}`, active: false });
+  const tab = await chrome.tabs.create({ url: 'https://outlook.office.com/calendar/view/week', active: false });
   await set('sync', { ...sync, tabId: tab.id, err: '' });
   setTimeout(async () => { const s = await get('sync'); if (s.tabId === tab.id) { await set('sync', { ...s, tabId: null, err: 'انتهت مهلة السحب – تأكد من تسجيل الدخول في Outlook' }); chrome.tabs.remove(tab.id).catch(() => {}); } }, 6 * 60000);
   return { ok: true };
