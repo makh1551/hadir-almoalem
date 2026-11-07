@@ -1,6 +1,6 @@
 // حاضر المعلم — النافذة المنبثقة
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const DEF = { settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {}, autoRosters: {} };
+const DEF = { myClasses: [], periods: {}, settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {}, autoRosters: {} };
 const classToday = (c, day, dow) => c.date ? c.date === day : (c.day !== undefined && c.day !== '' && Number(c.day) === dow);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -46,15 +46,13 @@ async function vToday() {
   }
   // معالج أول مرة
   if (!st.onboarded) {
-    const found = classes.filter(c => c.src === 'cal' || c.src === 'rased').length;
+    const mine = (await get('myClasses')).length, slots = classes.filter(c => c.src === 'table').length;
     h += `<div class="card hero"><div class="big">👋 أهلًا بك في حاضر المعلم</div>
-      <div class="mut" style="margin:6px 0 8px">خطوة واحدة: اختر اسمك، وتُسحب حصصك وروابطها من جدول «راصد» تلقائيًا كل يوم.</div>
-      <select id="wzT" style="width:100%"><option value="">⏳ جارٍ تحميل أسماء المعلمين…</option></select>
-      <button class="btn xl" id="wzGo" style="margin-top:8px;width:100%">🔄 اسحب حصصي وابدأ</button>
-      <div id="wzOut" class="mut" style="margin-top:6px"></div>
-      ${found ? `<div style="margin-top:10px">✅ ${st.rasedTeacher ? '<b>' + esc(st.rasedTeacher) + '</b> · ' : ''}وجدت ${found} حصة.</div>
-      <div class="row" style="margin-top:8px"><button class="btn" id="wzDone">تم، ابدأ</button></div>` : ''}
-      <details style="margin-top:8px"><summary class="mut">مدرستك ليست في راصد؟ اسحب من تقويم Outlook</summary>
+      <div style="margin:8px 0">إعداد لمرة واحدة، دقيقتان:</div>
+      <div>${mine ? '✅' : '1️⃣'} أضف صفوفك، ورابط اجتماع Teams الثابت لكل صف.</div>
+      <div>${slots ? '✅' : '2️⃣'} حدّد حصصك في الجدول الأسبوعي.</div>
+      <div class="row" style="margin-top:10px"><button class="btn xl" id="wzTable">${mine ? '📅 أكمل جدولي' : '📅 ابدأ: صفوفي وجدولي'}</button>${slots ? '<button class="btn" id="wzDone">تم ✓</button>' : ''}</div>
+      <details style="margin-top:8px"><summary class="mut">حصصك في تقويم Outlook؟ اسحبها منه بدل الجدول</summary>
         <div class="mut">سجّل الدخول في Outlook بحسابك في هذا المتصفح، ثم:</div>
         <button class="btn s" id="wzSync" style="margin-top:6px">${sync.tabId ? '⏳ جارٍ السحب…' : '📅 اسحب من تقويم Outlook'}</button></details></div>`;
   }
@@ -89,7 +87,7 @@ async function vToday() {
         ${next.video ? '' : '<div class="tag warn" style="margin-top:6px">بلا مقطع — أضف رابطه من «الحصص»</div>'}</div>`;
     } else if (st.onboarded) h += `<div class="card hero"><div class="big">✅ لا حصص متبقية اليوم</div></div>`;
   }
-  h += `<div class="card"><div class="row"><button class="btn s" id="syncNow">🔄 تحديث الحصص</button><span class="mut">${sync.tabId ? 'جارٍ السحب...' : sync.last ? 'آخر سحب: ' + new Date(sync.last).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + sync.lastCount + ' حصة' : 'لم يُسحب بعد'}</span></div>${sync.lastErr ? `<div class="tag bad">${esc(sync.lastErr)}</div>` : ''}</div>`;
+  if (st.source === 'outlook') h += `<div class="card"><div class="row"><button class="btn s" id="syncNow">🔄 تحديث الحصص</button><span class="mut">${sync.tabId ? 'جارٍ السحب...' : sync.last ? 'آخر سحب: ' + new Date(sync.last).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + sync.lastCount + ' حصة' : 'لم يُسحب بعد'}</span></div>${sync.lastErr ? `<div class="tag bad">${esc(sync.lastErr)}</div>` : ''}</div>`;
   if (!list.length) h += `<div class="card mut">لا حصص مفعّلة اليوم.</div>`;
   if (skippedToday) h += `<div class="card mut">⏸ ${skippedToday} حصة اليوم غير مختارة — لن يديرها المساعد. اخترها من «الأسبوع».</div>`;
   h += `<details class="card"><summary><b>🧪 حصة تجريبية الآن</b></summary>
@@ -101,10 +99,10 @@ async function vToday() {
   for (const c of list) {
     const s = Object.values(sessions).find(x => x.day === day && x.classId === c.id);
     const ph = s ? PH[s.phase] : null;
-    h += `<div class="card"><div class="row"><b>${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅 التقويم</span>' : c.src === 'rased' ? '<span class="tag">📋 راصد</span>' : ''}${ph ? `<span class="tag ${ph[1]}">${ph[0]}</span>` : ''}</div>
+    h += `<div class="card"><div class="row"><b>${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅 التقويم</span>' : ''}${ph ? `<span class="tag ${ph[1]}">${ph[0]}</span>` : ''}</div>
       <div class="mut">${esc(c.lesson || '')}</div>
       <div class="row" style="margin-top:6px">
-        ${c.link ? '' : c.src === 'rased' ? '<span class="tag warn">الرابط يُضاف صباحًا من راصد</span>' : '<span class="tag bad">بلا رابط</span>'}${c.video ? '<span class="tag ok">المقطع جاهز</span>' : '<span class="tag warn">بلا مقطع – أضف الرابط</span>'}
+        ${c.link ? '' : '<span class="tag bad">بلا رابط</span>'}${c.video ? '<span class="tag ok">المقطع جاهز</span>' : '<span class="tag warn">بلا مقطع – أضف الرابط</span>'}
         <button class="btn s" data-open="${c.id}" style="margin-inline-start:auto">افتح الآن</button></div></div>`;
   }
   $('#main').innerHTML = h;
@@ -122,14 +120,7 @@ async function vToday() {
   };
   const ssb = $('#stopShare'); if (ssb) ssb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'cmd', key: live.key, c: 'stopShare' }); $('#shareOut').textContent = r?.ok ? 'أُوقفت المشاركة' : 'أوقفها من Teams'; };
   const wz = $('#wzSync'); if (wz) wz.onclick = async () => { const s2 = await get('settings'); s2.source = 'outlook'; await set('settings', s2); await chrome.runtime.sendMessage({ t: 'syncNow' }); wz.textContent = '⏳ جارٍ السحب…'; const iv = setInterval(async () => { if (!(await get('sync')).tabId) { clearInterval(iv); render(); } }, 3000); };
-  if ($('#wzT')) fillTeachers($('#wzT'), st.rasedTeacher, $('#wzOut'));
-  const wg = $('#wzGo'); if (wg) wg.onclick = async () => {
-    const t = $('#wzT').value; if (!t) return ($('#wzOut').textContent = 'اختر اسمك أولًا');
-    const s2 = await get('settings'); s2.source = 'rased'; s2.rasedTeacher = t; if (!s2.teacherName) s2.teacherName = t; await set('settings', s2);
-    wg.textContent = '⏳ جارٍ السحب…'; const r = await chrome.runtime.sendMessage({ t: 'syncNow' });
-    if (!r?.ok) { $('#wzOut').textContent = r?.err || 'تعذّر'; wg.textContent = '🔄 اسحب حصصي وابدأ'; return; }
-    s2.onboarded = true; await set('settings', s2); render();
-  };
+  const wt = $('#wzTable'); if (wt) wt.onclick = () => go('classes');
   const wd = $('#wzDone'); if (wd) wd.onclick = async () => { const s2 = await get('settings'); s2.onboarded = true; await set('settings', s2); render(); };
   const sb = $('#syncNow'); if (sb) sb.onclick = async () => { const r = await chrome.runtime.sendMessage({ t: 'syncNow' }); if (!r?.ok) alert(r?.err || 'تعذّر'); setTimeout(render, 500); };
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = async () => {
@@ -154,13 +145,7 @@ async function cmd(key, c) {
   if (c === 'end') setTimeout(render, 1500);
 }
 
-// قائمة معلمي راصد
-async function fillTeachers(sel, cur, out) {
-  const r = await chrome.runtime.sendMessage({ t: 'rasedTeachers' });
-  if (!r?.ok) { sel.innerHTML = '<option value="">تعذّر تحميل القائمة</option>'; if (out) out.textContent = r?.err || ''; return; }
-  const by = {}; r.list.forEach(x => (by[x.s] = by[x.s] || []).push(x.n));
-  sel.innerHTML = '<option value="">— اختر اسمك —</option>' + Object.entries(by).map(([s, ns]) => `<optgroup label="${esc(s)}">${ns.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
-}
+function go(v) { view = v; document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.v === v)); render(); }
 
 // ===== الحصص =====
 async function vClasses() {
@@ -180,11 +165,10 @@ async function vClasses() {
   const now = new Date().toISOString().slice(0, 10);
   const shown = [...classes].filter(c => !c.date || c.date >= now)
     .sort((a, b) => (a.date || '0' + a.day).localeCompare(b.date || '0' + b.day) || a.start.localeCompare(b.start));
-  const stc = await get('settings');
-  h = `<div class="card mut">${stc.source === 'outlook' ? 'حصص التقويم تُسحب آليًا (' + esc(stc.syncTimes) + ').' : 'حصصك تُسحب آليًا من جدول «راصد»' + (stc.rasedTeacher ? ' باسم <b>' + esc(stc.rasedTeacher) + '</b>' : '') + '، وروابطها تُضاف صباح كل يوم.'} أضف «المقطع» لكل حصة من زر تعديل.</div>` + h;
+  h = (await tableEditor()) + `<details class="card"><summary><b>➕ حصة مفردة أو تعديل حصة</b></summary>` + h.replace('<div class="card"><b>إضافة حصة</b>', '<div>') + `</details>`;
   for (const c of shown) {
     const when = c.date ? new Date(c.date + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' }) : 'كل ' + DAYS[c.day];
-    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : c.src === 'rased' ? '<span class="tag">📋 راصد</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
+    h += `<div class="card"><div class="row"><b>${when} ${c.start} · ${esc(c.cls || c.lesson)}</b>${c.src === 'cal' ? '<span class="tag">📅</span>' : ''}${c.cls ? '' : '<span class="tag warn">حدّد الصف</span>'}${c.skip ? '<span class="tag">⏸ غير مختارة</span>' : ''}
       <button class="btn s" data-tog="${c.id}">${c.skip ? '▶️ اختر' : '⏸ ألغِ'}</button><button class="btn s" data-edit="${c.id}" style="margin-inline-start:auto">تعديل</button><button class="btn r" data-del="${c.id}">حذف</button></div>
       <div class="mut">${esc(c.lesson || '')} ${c.video ? '· 🎬' : '· ⚠️ بلا مقطع'} ${c.link ? '' : '· ⚠️ بلا رابط'}</div></div>`;
   }
@@ -220,6 +204,60 @@ async function vClasses() {
   });
   $('#cSug').onclick = () => suggestInto($('#cLesson').value, $('#cCls').value, url => { $('#cVideo').value = url; });
   if (pendingEdit) { const b = document.querySelector(`[data-edit="${pendingEdit}"]`); pendingEdit = null; if (b) b.click(); }
+}
+
+// ===== الجدول الأسبوعي: صفوفي (برابط ثابت) + شبكة الحصص =====
+const PERIODS = { times: ['07:45', '08:25', '09:05', '09:45', '10:25', '11:05', '11:45'], dur: 39 };
+async function tableEditor() {
+  const my = await get('myClasses'), per = { ...PERIODS, ...(await get('periods')) }, classes = await get('classes');
+  const cell = {}; classes.filter(c => c.src === 'table').forEach(c => cell[c.day + '-' + c.p] = c.cls);
+  const SH = { 'الأول': '1', 'الاول': '1', 'الثاني': '2', 'الثالث': '3', 'الرابع': '4', 'الخامس': '5', 'السادس': '6' };
+  const short = n => n.replace(/^(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)\s*/, (_, g) => SH[g] + ' ');
+  const opts = v => '<option value="">—</option>' + my.map(m => `<option value="${esc(m.cls)}" ${m.cls === v ? 'selected' : ''}>${esc(short(m.cls))}</option>`).join('');
+  setTimeout(bindTable, 0);
+  return `<div class="card"><b>📅 جدولي الأسبوعي</b>
+    <div class="mut" style="margin:4px 0">مرة واحدة: صفوفك وروابطها، ثم حصصك. يتكرر كل أسبوع، وتُفتح كل حصة آليًا في موعدها.</div>
+    <b style="font-size:14px">١. صفوفي</b>
+    <div class="mut">لكل صف: أنشئ في Teams <b>اجتماعًا متكررًا</b> (يوميًا، أيام الدوام) أو اجتماع قناة الصف، وانسخ رابطه هنا مرة واحدة.</div>
+    <div id="myList">${(my.length ? my : [{ cls: '', subject: '', link: '' }]).map(myRow).join('')}</div>
+    <button class="btn s" id="myAdd" style="margin-top:4px">➕ صف آخر</button>
+    <b style="font-size:14px;display:block;margin-top:10px">٢. حصصي</b>
+    ${my.length ? `<div style="overflow-x:auto"><table class="tt"><tr><th>الحصة</th>${DAYS.map(d => `<th>${d}</th>`).join('')}</tr>
+      ${per.times.map((t, p) => `<tr><td><input class="ptime" data-p="${p}" type="time" value="${t}"></td>${DAYS.map((_, d) => `<td><select data-cell="${d}-${p}">${opts(cell[d + '-' + p])}</select></td>`).join('')}</tr>`).join('')}</table></div>
+      <div class="row" style="margin-top:4px"><span class="mut">مدة الحصة (د)</span><input id="pDur" type="number" value="${per.dur}" style="width:60px"></div>`
+      : '<div class="mut">أضف صفًا واحدًا على الأقل ثم احفظ لتظهر الشبكة.</div>'}
+    <div class="row" style="margin-top:8px"><button class="btn" id="ttSave">💾 حفظ الجدول</button><span id="ttMsg" class="mut"></span></div></div>`;
+}
+function myRow(m) {
+  return `<div class="myr cls-grid" style="margin-top:6px;border-top:1px solid var(--bd);padding-top:6px">
+    <div><label>الصف</label><input class="mCls" value="${esc(m.cls)}" placeholder="السادس أ"></div>
+    <div><label>المادة</label><input class="mSub" value="${esc(m.subject || '')}" placeholder="لغتي"></div>
+    <div class="full"><label>رابط اجتماع Teams الثابت</label><div class="row"><input class="mLink" value="${esc(m.link || '')}" placeholder="https://teams.microsoft.com/..." style="flex:1"><button class="btn r mDel" title="حذف">✕</button></div></div></div>`;
+}
+function bindTable() {
+  const del = () => document.querySelectorAll('.mDel').forEach(b => b.onclick = () => b.closest('.myr').remove()); del();
+  $('#myAdd').onclick = () => { $('#myList').insertAdjacentHTML('beforeend', myRow({ cls: '', subject: '', link: '' })); del(); };
+  $('#ttSave').onclick = async () => {
+    const my = [...document.querySelectorAll('.myr')].map(r => ({ cls: r.querySelector('.mCls').value.trim(), subject: r.querySelector('.mSub').value.trim(), link: r.querySelector('.mLink').value.trim() })).filter(m => m.cls);
+    const bad = my.filter(m => m.link && !/teams\.(microsoft|live)\.com|teams\.cloud\.microsoft/.test(m.link));
+    if (bad.length) return ($('#ttMsg').textContent = 'رابط غير صحيح لـ ' + bad.map(m => m.cls).join('، '));
+    await set('myClasses', my);
+    const per = { ...PERIODS, ...(await get('periods')) };
+    document.querySelectorAll('.ptime').forEach(i => { if (i.value) per.times[+i.dataset.p] = i.value; });
+    if ($('#pDur')) per.dur = Number($('#pDur').value || 39);
+    await set('periods', per);
+    const by = Object.fromEntries(my.map(m => [m.cls, m]));
+    const list = await get('classes'), old = Object.fromEntries(list.filter(c => c.src === 'table').map(c => [c.id, c]));
+    const fresh = [];
+    document.querySelectorAll('[data-cell]').forEach(s => {
+      const m = by[s.value]; if (!m) return; const [d, p] = s.dataset.cell.split('-').map(Number); const id = 'tb-' + d + '-' + p, o = old[id] || {};
+      fresh.push({ ...o, id, src: 'table', day: d, p, start: per.times[p], dur: per.dur, cls: m.cls, lesson: o.cls === m.cls && o.lesson && o.lesson !== (by[o.cls] || {}).subject ? o.lesson : m.subject, link: m.link, video: o.cls === m.cls ? o.video || '' : '', questions: o.cls === m.cls ? o.questions || '' : '' });
+    });
+    await set('classes', [...list.filter(c => c.src !== 'table'), ...fresh]);
+    const noLink = my.filter(m => !m.link).length;
+    $('#ttMsg').textContent = `✓ حُفظ: ${my.length} صف · ${fresh.length} حصة أسبوعيًا` + (noLink ? ` · ${noLink} صف بلا رابط` : '');
+    setTimeout(render, 900);
+  };
 }
 
 // ===== اقتراح مقطع «عين» =====
@@ -486,10 +524,8 @@ function csv(s) {
 async function vSettings() {
   const st = await get('settings');
   $('#main').innerHTML = `<div class="card"><b>📥 مصدر الحصص</b>
-    <select id="sSrc" style="width:100%;margin-top:6px"><option value="rased" ${st.source !== 'outlook' ? 'selected' : ''}>جدول «راصد» (المدرسة) — موصى به</option><option value="outlook" ${st.source === 'outlook' ? 'selected' : ''}>تقويم Outlook</option></select>
-    <div id="srcR" style="${st.source === 'outlook' ? 'display:none' : ''}"><label>اسمك في جدول المدرسة</label><select id="sRT" style="width:100%"><option>${esc(st.rasedTeacher || '…')}</option></select>
-      <div class="mut">تُسحب حصصك وروابطها كل صباح، ويُعاد السحب كل 10 دقائق إن نقص رابط حصة اليوم.</div></div>
-    <div class="row" style="margin-top:8px"><button class="btn" id="srcSave">حفظ واسحب الآن</button><span id="srcMsg" class="mut"></span></div></div>
+    <select id="sSrc" style="width:100%;margin-top:6px"><option value="table" ${st.source !== 'outlook' ? 'selected' : ''}>جدولي الأسبوعي (من «الحصص») — موصى به</option><option value="outlook" ${st.source === 'outlook' ? 'selected' : ''}>تقويم Outlook (سحب آلي)</option></select>
+    <div class="row" style="margin-top:8px"><button class="btn" id="srcSave">حفظ</button><span id="srcMsg" class="mut"></span></div></div>
     <div class="card">
     <label>اسمك كما يظهر في Teams</label><input id="sName" value="${esc(st.teacherName)}" style="width:100%">
     <label>جوالك لملخص اليوم على واتساب</label><input id="sWa" value="${esc(st.waPhone || '')}" placeholder="05xxxxxxxx" style="width:100%">
@@ -518,13 +554,10 @@ async function vSettings() {
     <div class="card"><b>نسخة احتياطية</b><div class="row" style="margin-top:6px">
       <button class="btn s" id="bExp">تصدير</button><label class="btn s" style="margin:0">استيراد<input id="bImp" type="file" accept=".json" hidden></label></div></div>
     <div class="card mut">يجب أن يكون الحساب المسجّل في Teams بهذا المتصفح «مقدّمًا» في الاجتماع حتى يستطيع القفل. لمشاركة المقطع اضغط «مشاركة» في Teams واختر تبويب المقطع (يطلب Chrome ضغطة منك لأسباب أمنية).</div>`;
-  fillTeachers($('#sRT'), st.rasedTeacher);
-  $('#sSrc').onchange = e => { $('#srcR').style.display = e.target.value === 'outlook' ? 'none' : ''; };
   $('#srcSave').onclick = async () => {
-    const s2 = await get('settings'); s2.source = $('#sSrc').value; if (s2.source === 'rased') { if (!$('#sRT').value) return ($('#srcMsg').textContent = 'اختر اسمك'); s2.rasedTeacher = $('#sRT').value; }
-    await set('settings', s2); $('#srcMsg').textContent = '⏳';
-    const r = await chrome.runtime.sendMessage({ t: 'syncNow' });
-    $('#srcMsg').textContent = !r?.ok ? (r?.err || 'تعذّر') : s2.source === 'rased' ? `✓ سُحبت ${r.n} حصة` + (r.noLink ? ` · ${r.noLink} بلا رابط بعد (يُضاف صباح يومها)` : '') : '✓ جارٍ السحب من التقويم';
+    const s2 = await get('settings'); s2.source = $('#sSrc').value; await set('settings', s2);
+    if (s2.source === 'outlook') { const r = await chrome.runtime.sendMessage({ t: 'syncNow' }); $('#srcMsg').textContent = r?.ok ? '✓ جارٍ السحب من التقويم' : (r?.err || 'تعذّر'); }
+    else $('#srcMsg').textContent = '✓ تُدار حصصك من الجدول الأسبوعي';
   };
   $('#sSave').onclick = async () => {
     await set('settings', { ...(await get('settings')), teacherName: $('#sName').value.trim(), prepMin: Number($('#sPrep').value ?? 1), syncTimes: $('#sSync').value.trim(), weeks: Number($('#sWeeks').value || 2), guardMin: Number($('#sGuard').value || 10), lateMin: Number($('#sLate').value || 5), endWarnMin: Number($('#sWarn').value ?? 2), endMode: $('#sEnd').value, waPhone: $('#sWa').value.trim(), postSummary: $('#sSum').checked });
