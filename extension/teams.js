@@ -78,17 +78,20 @@
   const inMeeting = () => !!findBtn(L.leave);
   async function openPeople() { await click(L.people); await sleep(1500); }
 
-  // 1) الدخول
+  // 1) الدخول: يستمر حتى يدخل فعلًا (صفحة «جارٍ الاتصال» وغرفة الانتظار قد تأخذ دقائق)
   async function join() {
-    for (let i = 1; i <= 40; i++) {
+    const deadline = Math.min(Date.now() + 8 * 60000, endAt() - 60000);
+    let lastPress = 0, noted = false;
+    while (Date.now() < deadline) {
       if (inMeeting()) return true;
-      if ((await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV))) continue;
+      if ((await click(L.rejoin)) || (await click(L.continueBrowser)) || (await click(L.noAV))) { await sleep(1500); continue; }
       const jb = findBtn(L.joinNow);
-      if (jb && !(jb.disabled || jb.getAttribute('aria-disabled') === 'true')) {
-        press(jb); await sleep(1500);
-        if (findBtn(L.joinNow) && i % 2 === 0) { jb.focus(); for (const t of ['keydown', 'keypress', 'keyup']) jb.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })); }
-        if (i === 8) note('لم أستطع الضغط على «الانضمام الآن» — اضغطه بنفسك وسأكمل.');
+      if (jb && !(jb.disabled || jb.getAttribute('aria-disabled') === 'true') && Date.now() - lastPress > 10000) {
+        press(jb); lastPress = Date.now(); await sleep(1500);
+        if (findBtn(L.joinNow)) { jb.focus(); for (const t of ['keydown', 'keypress', 'keyup']) jb.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })); }
+        badge('ضغطت «الانضمام الآن» – بانتظار الاتصال…');
       }
+      if (!noted && Date.now() > deadline - 5 * 60000 && !inMeeting()) { noted = true; note('الدخول يتأخر – إن ظهر زر «الانضمام الآن» فاضغطه وسأكمل.'); }
       await sleep(2500);
     }
     return inMeeting();
@@ -189,7 +192,11 @@
     if (!r) return;
     ctx = r;
     badge('جارٍ الدخول…');
-    if (!(await join())) { badge('تعذّر الدخول'); await state({ phase: 'error', err: 'تعذّر الدخول' }); note(`تعذّر دخول اجتماع ${ctx.m.title} – ادخل يدويًا.`); return; }
+    if (!(await join())) {
+      badge('تعذّر الدخول – ادخل يدويًا وسأكمل'); await state({ phase: 'error', err: 'تعذّر الدخول' }); note(`تعذّر دخول «${ctx.m.title}» – ادخل يدويًا وسأكمل التعطيل والإغلاق.`);
+      while (!inMeeting() && Date.now() < endAt()) await sleep(5000);
+      if (!inMeeting()) return;
+    }
     await state({ phase: 'lock' }); badge('دخلت – جارٍ تعطيل المايك والكاميرا…');
     const ok = await lock();
     await state({ phase: 'live', locked: ok });

@@ -67,7 +67,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const runs = await get('runs'), id = Object.keys(runs).find(k => runs[k].tabId === sender.tab?.id);
       if (!id) return reply(null);
       const mt = (await get('meetings')).find(x => x.id === id);
-      reply(mt ? { m: mt } : null);
+      reply(mt ? { m: runs[id].start ? { ...mt, start: runs[id].start } : mt } : null);
     } else if (m.t === 'state') {
       await mutate('runs', r => { if (r[m.id]) Object.assign(r[m.id], m.patch); }); reply(true);
     } else if (m.t === 'ready') {
@@ -90,7 +90,12 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     } else if (m.t === 'syncNow') reply(await startSync());
     else if (m.t === 'openNow') {
       const mt = (await get('meetings')).find(x => x.id === m.id); if (!mt) return reply(false);
-      await mutate('runs', r => { delete r[mt.id]; }); await openMeeting(mt); reply(true);
+      await mutate('runs', r => { delete r[mt.id]; }); await openMeeting(mt);
+      // فتح للتجربة خارج موعده: يُحسب وقته من الآن (لا يُغلق فورًا)
+      const d = new Date(), now = pad(d.getHours()) + ':' + pad(d.getMinutes()), s = mins(mt.start);
+      const nm = d.getHours() * 60 + d.getMinutes();
+      if (mt.date !== ymd(d) || nm < s - 15 || nm >= s + Number(mt.dur || 40)) await mutate('runs', r => { if (r[mt.id]) r[mt.id].start = now; });
+      reply(true);
     } else if (m.t === 'endNow') {
       const runs = await get('runs'), r = runs[m.id]; if (!r) return reply(false);
       try { reply(await chrome.tabs.sendMessage(r.tabId, { t: 'cmd', c: 'end' })); } catch (e) { reply({ ok: false }); }
