@@ -61,6 +61,18 @@
     el.click();
   }
   async function click(list, root) { const b = findBtn(list, root); if (b) { press(b); await sleep(900); return true; } return false; }
+  // أزرار يجب ألا تُضغط أثناء القفل (المغادرة/الإنهاء)
+  const DANGER = /مغادرة|leave|إنهاء|end meeting|hang ?up/i;
+  const labelOf = b => norm((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '').slice(0, 80));
+  const esc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  // زر «المزيد» في شريط الاجتماع بالضبط (لا سهم المغادرة)
+  function moreTopBtn() {
+    const all = [...document.querySelectorAll('button,[role="button"]')].filter(vis);
+    const byId = all.find(b => /more|showMore|callingButtons-showMoreBtn/i.test(b.id + ' ' + (b.getAttribute('data-tid') || '')) && !DANGER.test(labelOf(b)));
+    if (byId) return byId;
+    return all.find(b => { const a = norm(b.getAttribute('aria-label') || b.textContent || ''); return /^(المزيد|More|More actions|المزيد من الإجراءات)$/.test(a) && !DANGER.test(labelOf(b)); }) || null;
+  }
+  function closeLeaveMenu() { if ([...document.querySelectorAll('[role="menuitem"],[role="menuitemradio"]')].some(m => vis(m) && /إنهاء الاجتماع|End meeting/.test(m.textContent))) esc(); }
   const dialog = () => document.querySelector('[role="alertdialog"],[role="dialog"]') || document;
 
   let ctx = null;
@@ -119,7 +131,7 @@
   async function meetingOptionsLock(lk) {
     const already = findToggle(L.allowMic) || findToggle(L.allowCam);
     if (!already) {
-      if (!(await click(L.moreTop))) return;
+      const mt = moreTopBtn(); if (!mt) return; press(mt); await sleep(1000); closeLeaveMenu();
       if (!(await click(L.meetingOptions))) { if (await click(L.settings)) await click(L.meetingOptions); }
       await sleep(2500);
     }
@@ -144,14 +156,16 @@
       if (!lk.mute && (await click(L.muteAll))) { await click(L.muteConfirm, dialog()); lk.mute = true; }
       for (const [k, lbl] of [['mic', L.disMic], ['cam', L.disCam]]) {
         if (lk[k]) continue;
-        const moreBtns = [...document.querySelectorAll('button,[role="button"]')].filter(b => vis(b) && L.more.map(norm).some(w => norm(b.getAttribute('aria-label')).includes(w)));
+        const moreBtns = [...document.querySelectorAll('button,[role="button"]')].filter(b => vis(b) && !DANGER.test(labelOf(b)) && L.more.map(norm).some(w => norm(b.getAttribute('aria-label')).includes(w)));
         for (const mb of moreBtns) {
           mb.click(); await sleep(700);
           if (await click(lbl)) { await click(L.disable, dialog()); lk[k] = true; break; }
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await sleep(300);
+          esc(); await sleep(300); closeLeaveMenu();
         }
       }
+      closeLeaveMenu();
       if (!lk.mic || !lk.cam) await meetingOptionsLock(lk);
+      closeLeaveMenu();
       if (!(lk.mic && lk.cam)) await sleep(4000);
     }
     return lk.mic && lk.cam;
