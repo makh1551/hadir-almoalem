@@ -9,6 +9,7 @@ const DEF = {
   rosters: {},
   sessions: {},
   tabs: {},
+  myClasses: [], periods: {},
   sync: { tabId: null, startedAt: 0, last: null, lastCount: 0, lastErr: '' }
 };
 async function get(k) { const o = await chrome.storage.local.get(k); return o[k] ?? structuredClone(DEF[k]); }
@@ -76,6 +77,7 @@ async function tick() {
       chrome.runtime.reload(); return;
     }
   } catch (e) {}
+  if (d.getMinutes() % 30 === 7) pushSched();
   // تنظيف التخزين مرة يوميًا (يبقي الإضافة سريعة)
   if ((await chrome.storage.local.get('pruned')).pruned !== day) { await chrome.storage.local.set({ pruned: day }); prune(); }
   // فحص التحديث كل 6 ساعات
@@ -229,6 +231,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       const st = await get('settings');
       if (m.enable === false) { st.ctlToken = ''; await set('settings', st); return reply({ on: false }); }
       if (!st.ctlToken && m.enable) { const a = new Uint8Array(16); crypto.getRandomValues(a); st.ctlToken = [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 30); await set('settings', st); }
+      if (st.ctlToken) { await chrome.storage.local.remove('schedSig'); pushSched(); }
       reply(st.ctlToken ? { on: true, url: CLOUD + '/c/' + st.ctlToken } : { on: false });
     } else if (m.t === 'syncNow') {
       reply(await startSync());
@@ -369,6 +372,17 @@ async function cloudSync() {
     questions: (s.questions || []).map(q => ({ t: q.text, a: q.answers.slice(0, 5).map(a => a.name) })), summary: s.summary || '' }));
   try { await fetch(CLOUD + '/api/sync/' + st.cloudToken, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ teacher: st.teacherName, at: new Date().toISOString(), sessions: ss }) }); } catch (e) {}
 }
+
+// ===== نسخ الجدول وأسماء الطلاب لتطبيق الجوال (عند تفعيل التحكم من الجوال) =====
+async function pushSched() {
+  const st = await get('settings'); if (!st.ctlToken) return;
+  const day = today(), classes = (await get('classes')).filter(c => !c.date || c.date >= day).map(c => ({ src: c.src, day: c.day, p: c.p, date: c.date, start: c.start, dur: c.dur, cls: c.cls, lesson: c.lesson, link: c.link, skip: !!c.skip }));
+  const body = { teacher: st.teacherName || '', myClasses: await get('myClasses'), periods: await get('periods'), classes, rosters: await get('rosters') };
+  const sig = JSON.stringify(body).length + ':' + hash(JSON.stringify(body));
+  if ((await chrome.storage.local.get('schedSig')).schedSig === sig) return;
+  try { const r = await fetch(CLOUD + '/api/ctl/' + st.ctlToken + '/sched', { method: 'POST', body: JSON.stringify(body) }); if (r.ok) await chrome.storage.local.set({ schedSig: sig }); } catch (e) {}
+}
+chrome.storage.onChanged.addListener(ch => { if (ch.classes || ch.myClasses || ch.periods || ch.rosters) { clearTimeout(pushSched.t); pushSched.t = setTimeout(pushSched, 4000); } });
 
 // ===== اختصار Ctrl+Shift+1: اعرض التبويب الحالي (المقطع) في Teams =====
 chrome.commands.onCommand.addListener(async (cmd, tab) => {

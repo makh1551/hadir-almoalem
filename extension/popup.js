@@ -571,9 +571,10 @@ async function vSettings() {
   const showCloud = r => { $('#cloudOut').innerHTML = r.cloud ? `<div class="row"><a class="btn" href="${esc(r.url)}" target="_blank">فتح تقاريري</a><button class="btn s" id="cCp">نسخ الرابط</button></div><div class="mut" style="margin-top:4px">احفظ الرابط في جوالك ولا تشاركه: من يملكه يرى التقارير.</div>` : '';
     const b = $('#cCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(r.url); b.textContent = '✓ نُسخ'; }; };
   if (st.cloud) chrome.runtime.sendMessage({ t: 'cloudLink' }).then(showCloud);
-  const showCtl = r => { $('#ctlOut').innerHTML = r.on ? `<div class="row"><a class="btn" href="${esc(r.url)}" target="_blank">فتح</a><button class="btn s" id="ctlCp">نسخ الرابط</button>${st.waPhone ? `<a class="btn s" target="_blank" href="https://wa.me/${esc(waNum(st.waPhone))}?text=${encodeURIComponent('رابط التحكم بحصصي (حاضر المعلم):\n' + r.url)}">أرسله لجوالي واتساب</a>` : ''}</div>
-      <div class="mut" style="margin-top:4px">افتحه على جوالك وأضفه للشاشة الرئيسية. لا تشاركه: من يملكه يتحكم بحصتك. لإبطاله أوقف التفعيل ثم فعّله من جديد.</div>` : '';
-    const b = $('#ctlCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(r.url); b.textContent = '✓ نُسخ'; }; };
+  const showCtl = r => { const app = r.on ? r.url.replace('/c/', '/app#k=') : '';
+    $('#ctlOut').innerHTML = r.on ? `<div class="row"><a class="btn" href="${esc(app)}" target="_blank">فتح تطبيق الجوال</a><button class="btn s" id="ctlCp">نسخ الرابط</button>${st.waPhone ? `<a class="btn s" target="_blank" href="https://wa.me/${esc(waNum(st.waPhone))}?text=${encodeURIComponent('تطبيق حاضر المعلم على جوالي (مربوط بالكمبيوتر):\n' + app)}">أرسله لجوالي واتساب</a>` : ''}</div>
+      <div class="mut" style="margin-top:4px">افتحه على جوالك في Safari ثم «إضافة إلى الشاشة الرئيسية»: يُنسخ جدولك وأسماء طلابك، وتتحكم بالحصة منه. لا تشاركه: من يملكه يتحكم بحصتك. لإبطاله أوقف التفعيل ثم فعّله من جديد.</div>` : '';
+    const b = $('#ctlCp'); if (b) b.onclick = async () => { await navigator.clipboard.writeText(app); b.textContent = '✓ نُسخ'; }; };
   if (st.ctlToken) chrome.runtime.sendMessage({ t: 'ctlLink' }).then(showCtl);
   $('#sCtl').onchange = async e => showCtl(await chrome.runtime.sendMessage({ t: 'ctlLink', enable: e.target.checked }));
   $('#sCloud').onchange = async e => showCloud(await chrome.runtime.sendMessage({ t: 'cloudLink', enable: e.target.checked }));

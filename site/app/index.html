@@ -1,0 +1,274 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="حاضر المعلم">
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/app/icon-192.png"><link rel="icon" href="/app/icon-192.png">
+<title>حاضر المعلم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0f766e;--p2:#14b8a6;--bg:#f3f6f5;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6;--g:#15803d;--a:#b45309;--r:#b91c1c;--soft:#0f766e12}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1312;--card:#13201e;--tx:#e8f0ee;--mut:#9fb2ae;--bd:#22312e;--g:#4ade80;--a:#fbbf24;--r:#f87171;--soft:#14b8a61a}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 "IBM Plex Sans Arabic",Tahoma,sans-serif}
+header{background:var(--p);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;position:sticky;top:0;z-index:5}
+header b{font-size:18px}header .s{opacity:.85;font-size:13px}
+main{max-width:560px;margin:auto;padding:12px 16px calc(90px + env(safe-area-inset-bottom))}
+nav{position:fixed;bottom:0;inset-inline:0;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--mut);font:inherit;font-size:12px;padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button span{font-size:20px}nav button.on{color:var(--p);font-weight:700}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
+.hero{border:2px solid var(--p)}
+.big{font-size:20px;font-weight:700}.mut{color:var(--mut);font-size:13.5px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{display:inline-block;border-radius:20px;padding:1px 10px;font-size:12.5px;background:var(--soft)}
+.g{color:var(--g)}.a{color:var(--a)}.r{color:var(--r)}
+button.b,a.b{font:inherit;border:0;border-radius:12px;padding:12px 14px;font-weight:700;background:var(--soft);color:var(--tx);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px}
+.pri{background:var(--p)!important;color:#fff!important}.dan{color:var(--r)!important;background:#b91c1c14!important}
+.w{width:100%}.sm{min-height:36px!important;padding:6px 10px!important;font-size:14px}
+input,select,textarea{font:inherit;width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+label{font-size:13px;color:var(--mut);display:block;margin:8px 0 2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-top:8px}.stats div{background:var(--soft);border-radius:12px;padding:6px}.stats b{display:block;font-size:22px}
+table.tt{border-collapse:collapse;width:100%;font-size:13px}table.tt th,table.tt td{border:1px solid var(--bd);padding:3px;text-align:center}
+table.tt th{background:var(--soft)}table.tt select{border:0;padding:6px 0;text-align:center;text-align-last:center;appearance:none;-webkit-appearance:none;background:transparent;font-weight:600;font-size:13px}
+table.tt input{border:0;padding:4px 0;font-size:12px;text-align:center;background:transparent}
+.st{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--bd)}.st:last-child{border:0}
+.st .n{flex:1}.seg{display:flex;gap:4px}.seg button{border:1px solid var(--bd);background:var(--card);color:var(--mut);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px}
+.seg button.on.p{background:var(--g);color:#fff;border-color:var(--g)}.seg button.on.l{background:var(--a);color:#fff;border-color:var(--a)}.seg button.on.x{background:var(--r);color:#fff;border-color:var(--r)}
+#toast{position:fixed;inset-inline:16px;bottom:calc(84px + env(safe-area-inset-bottom));background:#14211f;color:#fff;border-radius:12px;padding:12px 14px;display:none;z-index:9}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--g);margin-inline-end:4px;animation:p 1.4s infinite}@keyframes p{50%{opacity:.3}}
+details summary{cursor:pointer;color:var(--p);font-weight:600}
+</style></head><body>
+<header><b>🎓 حاضر المعلم</b><div class="s" id="sub"></div></header>
+<main id="main"></main>
+<nav><button data-v="today" class="on"><span>🏠</span>اليوم</button><button data-v="table"><span>📅</span>جدولي</button><button data-v="att"><span>✅</span>الحضور</button><button data-v="set"><span>⚙️</span>الإعدادات</button></nav>
+<div id="toast"></div>
+<script>
+// ===== البيانات (على الجوال فقط) =====
+const K = 'hadir-app', DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+const DEF = { teacher: '', my: [], per: { times: ['07:45', '08:25', '09:05', '09:45', '10:25', '11:05', '11:45'], dur: 39 }, grid: {}, rosters: {}, recs: {}, token: '', extra: [], skip: {} };
+let S; try { S = { ...DEF, ...JSON.parse(localStorage.getItem(K) || '{}') }; } catch (e) { S = { ...DEF }; }
+const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch (e) { toast('تعذّر الحفظ على الجهاز'); } };
+const $ = s => document.querySelector(s), esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pad = n => String(n).padStart(2, '0'), ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const mins = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; }, nowM = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+const fmt = t => { let [h, m] = t.split(':').map(Number); const ap = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${h}:${pad(m)} ${ap}`; };
+const toast = (t, ms = 3000) => { const e = $('#toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', ms); };
+const API = () => '/api/ctl/' + S.token;
+let view = 'today', live = {}, waiting = null, liveStatus = '';
+
+// حصص يوم معيّن: من الجدول الأسبوعي + حصص مؤرخة جاءت من الكمبيوتر
+function classesOn(d) {
+  const dw = d.getDay(), day = ymd(d), out = [];
+  const subj = Object.fromEntries(S.my.map(m => [m.cls, m]));
+  if (dw <= 4) S.per.times.forEach((t, p) => { const c = S.grid[dw + '-' + p]; if (c) out.push({ id: day + '|' + t + '|' + c, start: t, dur: S.per.dur, cls: c, lesson: subj[c]?.subject || '', link: subj[c]?.link || '' }); });
+  for (const x of S.extra || []) if (x.date === day && !out.some(o => o.start === x.start)) out.push({ id: day + '|' + x.start + '|' + x.cls, ...x });
+  return out.filter(c => !S.skip[c.id]).sort((a, b) => a.start.localeCompare(b.start));
+}
+function state(c) { const n = nowM(), s = mins(c.start); return n < s ? 'next' : n < s + Number(c.dur) ? 'now' : 'done'; }
+// رابط Teams يفتح التطبيق مباشرة على الجوال
+const teamsUrl = l => l;
+
+// ===== الشاشات =====
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  $('#sub').textContent = (S.teacher ? 'الأستاذ/ ' + S.teacher + ' · ' : '') + new Date().toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' });
+  ({ today: vToday, table: vTable, att: vAtt, set: vSet })[view]();
+}
+function vToday() {
+  const list = classesOn(new Date());
+  let h = '';
+  if (!S.my.length) h += `<div class="card hero"><div class="big">👋 أهلًا بك</div><div style="margin:6px 0 10px">إعداد لمرة واحدة: صفوفك وروابطها، ثم جدولك. أو اربطه بالكمبيوتر فيُنسخ جدولك منه.</div>
+    <div class="grid2"><button class="b pri" data-go="table">📅 جدولي</button><button class="b" data-go="set">🔗 اربط بالكمبيوتر</button></div></div>`;
+  const cur = list.find(c => state(c) === 'now'), nxt = list.find(c => state(c) === 'next'), focus = cur || nxt;
+  const isLive = live.at && Date.now() - live.at < 90000 && ['join', 'lock', 'live'].includes(live.phase);
+  if (isLive) h += liveCard();
+  else if (focus) {
+    const left = mins(focus.start) - nowM();
+    h += `<div class="card hero"><div class="row"><span class="big" style="flex:1">${esc(focus.cls)}</span><span class="tag">${cur ? '<span class="dot"></span>جارية' : left <= 60 ? 'بعد ' + left + ' د' : fmt(focus.start)}</span></div>
+      <div class="mut">${esc(focus.lesson)} · ${fmt(focus.start)} · ${focus.dur} د</div>
+      <div class="grid2" style="margin-top:10px">${focus.link ? `<a class="b pri" href="${esc(teamsUrl(focus.link))}">▶️ ادخل الحصة</a>` : '<button class="b" data-go="table">أضف رابط الصف</button>'}<button class="b" data-att="${esc(focus.id)}">✅ الحضور</button></div>
+      ${S.token ? '<div class="mut" style="margin-top:8px">💻 الكمبيوتر يجهّز الحصة ويقفلها؛ تظهر هنا أزرار التحكم عند بدئها.</div>' : ''}</div>`;
+  }
+  if (S.my.length) h += `<div class="card"><b>حصص اليوم</b>${list.length ? list.map(c => {
+    const st = state(c), r = S.recs[c.id];
+    return `<div class="st"><span class="n"><b>${fmt(c.start)}</b> · ${esc(c.cls)} <span class="mut">${esc(c.lesson)}</span>${r ? ` <span class="tag g">رُصد</span>` : ''}</span>
+      ${st === 'done' ? '<span class="mut">انتهت</span>' : c.link ? `<a class="b sm" href="${esc(c.link)}">ادخل</a>` : ''}<button class="b sm" data-att="${esc(c.id)}">✅</button></div>`; }).join('') : '<div class="mut" style="margin-top:6px">لا حصص اليوم 🌿</div>'}</div>`;
+  $('#main').innerHTML = h;
+  bindCommon();
+  document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => sendCmd(b.dataset.cmd));
+}
+function liveCard() {
+  const L = live;
+  return `<div class="card hero"><div class="row"><span class="big" style="flex:1">${esc(L.cls)}</span><span class="tag"><span class="dot"></span>${L.phase === 'live' ? 'تعمل' : 'تُجهَّز'}</span></div>
+    <div class="mut">${esc(L.lesson || '')} · باقي ${L.left ?? '–'} د · ${L.teacherSeen ? '✅ دخلتَ ' + esc(L.teacherSeen) : '<b class="a">⏳ بانتظار دخولك</b>'}</div>
+    <div class="stats"><div><b class="g">${L.present ?? 0}</b>حاضر</div><div><b class="r">${L.absent ?? '–'}</b>غائب</div><div><b>${(L.hands || []).length}</b>✋</div></div>
+    ${(L.hands || []).length ? `<div style="margin-top:6px">✋ ${esc(L.hands.join('، '))}</div>` : ''}
+    ${(L.chat || []).length ? `<div class="mut" style="margin-top:4px">💬 ${L.chat.map(c => '<b>' + esc(c.who) + ':</b> ' + esc(c.txt)).join('<br>💬 ')}</div>` : ''}
+    <div class="grid2" style="margin-top:10px">
+      ${L.teacherSeen ? '' : '<button class="b pri" data-cmd="teacherIn" style="grid-column:1/-1">✋ أنا داخل</button>'}
+      <button class="b" data-cmd="muteAll">🔇 كتم الجميع</button><button class="b" data-cmd="relock">🔒 إعادة القفل</button>
+      <button class="b" data-cmd="status">👥 الحضور</button><button class="b" data-cmd="video">🎬 المقطع</button>
+      <button class="b" data-cmd="ask">❓ سؤال</button><button class="b" data-cmd="summary">📝 ملخص</button>
+      <button class="b dan" data-cmd="end" style="grid-column:1/-1">⏹ إنهاء الحصة</button></div>
+    <div id="liveInfo">${liveStatus}</div></div>`;
+}
+function vTable() {
+  const opt = v => '<option value="">—</option>' + S.my.map(m => `<option value="${esc(m.cls)}" ${m.cls === v ? 'selected' : ''}>${esc(short(m.cls))}</option>`).join('');
+  $('#main').innerHTML = `<div class="card"><b>١. صفوفي</b><div class="mut">لكل صف رابط اجتماع Teams ثابت (اجتماع متكرر أو اجتماع قناة الصف).</div>
+    <div id="myl">${(S.my.length ? S.my : [{ cls: '', subject: '', link: '' }]).map(myRow).join('')}</div>
+    <button class="b sm" id="addMy" style="margin-top:8px">➕ صف آخر</button></div>
+    <div class="card"><b>٢. حصصي</b><div class="mut">اختر الصف في خانة كل حصة. يتكرر كل أسبوع.</div>
+    ${S.my.length ? `<div style="overflow-x:auto;margin-top:6px"><table class="tt"><tr><th>الحصة</th>${DAYS.map(d => `<th>${d.replace('ال', '')}</th>`).join('')}</tr>
+      ${S.per.times.map((t, p) => `<tr><td><input type="time" data-pt="${p}" value="${t}"></td>${DAYS.map((_, d) => `<td><select data-g="${d}-${p}">${opt(S.grid[d + '-' + p])}</select></td>`).join('')}</tr>`).join('')}</table></div>
+      <label>مدة الحصة (دقيقة)</label><input type="number" id="dur" value="${S.per.dur}" style="width:100px">` : '<div class="mut" style="margin-top:6px">احفظ صفًا واحدًا على الأقل لتظهر الشبكة.</div>'}</div>
+    <button class="b pri w" id="saveT">💾 حفظ الجدول</button>
+    <div class="card" style="margin-top:12px"><b>🔔 التذكير قبل كل حصة</b><div class="mut">يضيف جدولك إلى تقويم جوالك، مع تنبيه قبل كل حصة بدقيقتين وفيه رابط الدخول.</div>
+      <button class="b w" id="ics" style="margin-top:8px">📆 أضف جدولي إلى تقويم الجوال</button></div>`;
+  const rebind = () => document.querySelectorAll('.del').forEach(b => b.onclick = () => b.closest('.myr').remove()); rebind();
+  $('#addMy').onclick = () => { $('#myl').insertAdjacentHTML('beforeend', myRow({ cls: '', subject: '', link: '' })); rebind(); };
+  $('#saveT').onclick = () => {
+    const my = [...document.querySelectorAll('.myr')].map(r => ({ cls: r.querySelector('.mc').value.trim(), subject: r.querySelector('.ms').value.trim(), link: r.querySelector('.ml').value.trim() })).filter(m => m.cls);
+    const bad = my.find(m => m.link && !/^https:\/\/[^ ]*teams/.test(m.link)); if (bad) return toast('رابط غير صحيح لـ ' + bad.cls);
+    S.my = my; document.querySelectorAll('[data-pt]').forEach(i => { if (i.value) S.per.times[+i.dataset.pt] = i.value; });
+    if ($('#dur')) S.per.dur = Number($('#dur').value) || 39;
+    const names = new Set(my.map(m => m.cls)); const g = {};
+    document.querySelectorAll('[data-g]').forEach(s => { if (s.value && names.has(s.value)) g[s.dataset.g] = s.value; });
+    if (document.querySelector('[data-g]')) S.grid = g; else for (const k of Object.keys(S.grid)) if (!names.has(S.grid[k])) delete S.grid[k];
+    save(); toast('✓ حُفظ: ' + my.length + ' صف · ' + Object.keys(S.grid).length + ' حصة أسبوعيًا'); render();
+  };
+  $('#ics').onclick = exportIcs;
+}
+function myRow(m) {
+  return `<div class="myr" style="border-top:1px solid var(--bd);margin-top:8px;padding-top:4px"><div class="grid2"><div><label>الصف</label><input class="mc" value="${esc(m.cls)}" placeholder="السادس أ"></div>
+    <div><label>المادة</label><input class="ms" value="${esc(m.subject || '')}" placeholder="لغتي"></div></div>
+    <label>رابط Teams</label><div class="row" style="flex-wrap:nowrap"><input class="ml" value="${esc(m.link || '')}" placeholder="https://teams.microsoft.com/..." dir="ltr"><button class="b sm dan del">✕</button></div></div>`;
+}
+const short = n => n.replace(/^(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)\s*/, (_, g) => ({ 'الأول': '1', 'الاول': '1', 'الثاني': '2', 'الثالث': '3', 'الرابع': '4', 'الخامس': '5', 'السادس': '6' }[g]) + ' ');
+
+// ===== الحضور اليدوي =====
+let attId = null;
+function vAtt() {
+  if (attId) return vSheet();
+  const days = [...new Set(Object.keys(S.recs).map(k => k.split('|')[0]))].sort().reverse().slice(0, 14);
+  let h = `<div class="card"><b>✅ رصد الحضور</b><div class="mut">اختر حصة اليوم لترصد حضورها. ${S.token ? 'إذا كان الكمبيوتر يدير الحصة فالرصد آلي، وهذا للحصص التي تديرها من جوالك فقط.' : ''}</div>
+    ${classesOn(new Date()).map(c => `<button class="b w" data-att="${esc(c.id)}" style="margin-top:8px;justify-content:space-between"><span>${fmt(c.start)} · ${esc(c.cls)}</span><span>${S.recs[c.id] ? '✓ رُصد' : '›'}</span></button>`).join('') || '<div class="mut">لا حصص اليوم.</div>'}</div>`;
+  for (const d of days) {
+    const recs = Object.entries(S.recs).filter(([k]) => k.startsWith(d + '|')).sort();
+    h += `<div class="card"><b>${new Date(d + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'short' })}</b>${recs.map(([k, r]) => { const c = cnt(r);
+      return `<div class="st"><span class="n">${fmt(k.split('|')[1])} · ${esc(k.split('|')[2])}</span><span class="tag g">${c.p}</span><span class="tag a">${c.l}</span><span class="tag r">${c.x}</span><button class="b sm" data-att="${esc(k)}">فتح</button></div>`; }).join('')}</div>`;
+  }
+  $('#main').innerHTML = h; bindCommon();
+}
+const cnt = r => { const v = Object.values(r.marks || {}); return { p: v.filter(x => x === 'p').length, l: v.filter(x => x === 'l').length, x: v.filter(x => x === 'x').length }; };
+function vSheet() {
+  const [day, start, cls] = attId.split('|'); const names = S.rosters[cls] || [];
+  const r = S.recs[attId] || { marks: {} };
+  const c = cnt(r);
+  $('#main').innerHTML = `<div class="card"><div class="row"><button class="b sm" id="back">→</button><span class="big" style="flex:1">${esc(cls)}</span><span class="mut">${fmt(start)}</span></div>
+    <div class="stats"><div><b class="g">${c.p}</b>حاضر</div><div><b class="a">${c.l}</b>متأخر</div><div><b class="r">${c.x}</b>غائب</div></div>
+    ${names.length ? `<div class="row" style="margin-top:8px"><button class="b sm" id="allP">الكل حاضر</button><button class="b sm" id="share">📤 الغائبون واتساب</button><button class="b sm" id="copy">📋 نسخ الغائبين</button></div>` : ''}</div>
+    <div class="card">${names.length ? names.map((n, i) => `<div class="st"><span class="n">${esc(n)}</span><div class="seg" data-i="${i}">
+      <button class="p ${r.marks[n] === 'p' ? 'on p' : ''}" data-m="p">حاضر</button><button class="l ${r.marks[n] === 'l' ? 'on l' : ''}" data-m="l">متأخر</button><button class="x ${r.marks[n] === 'x' ? 'on x' : ''}" data-m="x">غائب</button></div></div>`).join('')
+      : `<div class="mut">لا أسماء لهذا الصف بعد. الصق الأسماء (اسم في كل سطر):</div><textarea id="names" rows="8" style="margin-top:6px"></textarea><button class="b pri w" id="saveN" style="margin-top:8px">حفظ الأسماء</button>`}</div>`;
+  $('#back').onclick = () => { attId = null; render(); };
+  if ($('#saveN')) $('#saveN').onclick = () => { S.rosters[cls] = $('#names').value.split('\n').map(x => x.trim()).filter(Boolean); save(); render(); };
+  document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+    const n = names[+b.parentElement.dataset.i]; const rec = S.recs[attId] || (S.recs[attId] = { marks: {}, at: Date.now() });
+    rec.marks[n] = rec.marks[n] === b.dataset.m ? undefined : b.dataset.m; if (!rec.marks[n]) delete rec.marks[n]; save(); vSheet();
+  });
+  const absent = () => names.filter(n => (S.recs[attId]?.marks || {})[n] === 'x');
+  if ($('#allP')) $('#allP').onclick = () => { const rec = S.recs[attId] || (S.recs[attId] = { marks: {}, at: Date.now() }); names.forEach(n => { if (!rec.marks[n]) rec.marks[n] = 'p'; }); save(); vSheet(); };
+  if ($('#copy')) $('#copy').onclick = async () => { try { await navigator.clipboard.writeText(absent().join('\n')); toast('✓ نُسخ ' + absent().length + ' اسم'); } catch (e) { toast('تعذّر النسخ'); } };
+  if ($('#share')) $('#share').onclick = () => { const t = `غياب ${cls} – ${new Date(day + 'T12:00').toLocaleDateString('ar-SA', { weekday: 'long' })} ${fmt(start)}:\n` + (absent().join('\n') || 'لا غياب 👏'); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); };
+}
+
+// ===== الإعدادات والربط =====
+function vSet() {
+  $('#main').innerHTML = `<div class="card"><label>اسمك</label><input id="tn" value="${esc(S.teacher)}" placeholder="عبدالمجيد السيد"></div>
+    <div class="card"><b>💻 الربط بالكمبيوتر</b><div class="mut">إذا ثبّتّ إضافة «حاضر المعلم» على الكمبيوتر: فعّل فيها «التحكم بالحصة من جوالك» والصق الرابط هنا. فيقفل الكمبيوتر الحصة ويرصدها آليًا، وتتحكم أنت من هنا، ويُنسخ جدولك وأسماء طلابك منه.</div>
+      <input id="tok" dir="ltr" placeholder="https://hadir.wasl.uk/c/..." value="${S.token ? 'https://hadir.wasl.uk/c/' + S.token : ''}" style="margin-top:8px">
+      <div class="grid2" style="margin-top:8px"><button class="b pri" id="link">🔗 ربط</button>${S.token ? '<button class="b dan" id="unlink">فك الربط</button>' : ''}</div>
+      ${S.token ? '<button class="b w" id="pull" style="margin-top:8px">⬇️ انسخ جدولي وأسماء طلابي من الكمبيوتر</button>' : ''}</div>
+    <div class="card"><b>📲 ثبّته على الشاشة الرئيسية</b><div class="mut">في Safari: زر المشاركة ⬆️ ← «إضافة إلى الشاشة الرئيسية». يعمل بعدها كتطبيق، حتى بلا إنترنت للجدول والرصد.</div></div>
+    <div class="card"><b>💾 نسخة احتياطية</b><div class="grid2" style="margin-top:8px"><button class="b" id="exp">تصدير</button><button class="b" id="imp">استيراد</button></div><input type="file" id="impf" accept=".json" style="display:none"></div>
+    <div class="mut" style="text-align:center">بياناتك محفوظة على جوالك فقط · <a href="/" style="color:var(--p)">hadir.wasl.uk</a></div>`;
+  $('#tn').onchange = e => { S.teacher = e.target.value.trim(); save(); };
+  $('#link').onclick = () => { const m = $('#tok').value.match(/\/c\/([a-z0-9]{24,40})/) || $('#tok').value.trim().match(/^([a-z0-9]{24,40})$/); if (!m) return toast('الصق رابط التحكم من إعدادات الإضافة'); S.token = m[1]; save(); toast('✓ رُبط بالكمبيوتر'); pullSched(true); render(); };
+  if ($('#unlink')) $('#unlink').onclick = () => { S.token = ''; live = {}; save(); render(); };
+  if ($('#pull')) $('#pull').onclick = () => pullSched(true);
+  $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'hadir-jawal.json'; a.click(); };
+  $('#imp').onclick = () => $('#impf').click();
+  $('#impf').onchange = async e => { try { S = { ...DEF, ...JSON.parse(await e.target.files[0].text()) }; save(); toast('✓ استُورد'); render(); } catch (x) { toast('ملف غير صالح'); } };
+}
+function bindCommon() {
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { view = b.dataset.go; render(); });
+  document.querySelectorAll('[data-att]').forEach(b => b.onclick = () => { attId = b.dataset.att; view = 'att'; render(); });
+}
+
+// ===== الكمبيوتر: الجدول + الحالة الحية + الأوامر =====
+async function pullSched(manual) {
+  if (!S.token) return;
+  try {
+    const d = await (await fetch(API() + '/sched', { cache: 'no-store' })).json();
+    if (!d.at) { if (manual) toast('لم يصل جدول من الكمبيوتر بعد. افتح الإضافة على الكمبيوتر مرة.'); return; }
+    if (d.teacher && !S.teacher) S.teacher = d.teacher;
+    if ((d.myClasses || []).length) S.my = d.myClasses.map(m => ({ cls: m.cls, subject: m.subject || '', link: m.link || '' }));
+    if (d.periods && d.periods.times) S.per = { times: d.periods.times, dur: d.periods.dur || 39 };
+    const g = {}; (d.classes || []).filter(c => c.src === 'table').forEach(c => g[c.day + '-' + c.p] = c.cls); if (Object.keys(g).length) S.grid = g;
+    S.extra = (d.classes || []).filter(c => c.date).map(c => ({ date: c.date, start: c.start, dur: c.dur, cls: c.cls, lesson: c.lesson, link: c.link }));
+    S.skip = {}; (d.classes || []).filter(c => c.skip).forEach(c => { if (c.date) S.skip[c.date + '|' + c.start + '|' + c.cls] = 1; });
+    if (d.rosters) for (const [k, v] of Object.entries(d.rosters)) if (v.length) S.rosters[k] = v;
+    S.syncedAt = d.at; save(); if (manual) toast('✓ نُسخ جدولك من الكمبيوتر'); if (view !== 'att') render();
+  } catch (e) { if (manual) toast('تعذّر الاتصال'); }
+}
+async function pullLive() {
+  if (!S.token || document.hidden) return;
+  try { const was = live.at && ['join', 'lock', 'live'].includes(live.phase); live = await (await fetch(API() + '/state', { cache: 'no-store' })).json();
+    const a = live.ack; if (waiting && a && a.id === waiting.id) { const w = waiting; waiting = null; showAck(w.c, a); }
+    const isL = live.at && Date.now() - live.at < 90000 && ['join', 'lock', 'live'].includes(live.phase);
+    if (view === 'today' && (isL || was) && !document.activeElement?.matches('input,textarea')) vToday();
+  } catch (e) {}
+}
+async function sendCmd(c) {
+  if (c === 'end' && !confirm('إنهاء الحصة للجميع؟')) return;
+  let text = ''; if (c === 'ask') { text = prompt('اكتب السؤال، أو اتركه فارغًا لسؤال تلقائي من الدرس') ?? null; if (text === null) return; }
+  toast('⏳ يُرسل للكمبيوتر…', 15000);
+  try { const r = await (await fetch(API() + '/cmd', { method: 'POST', body: JSON.stringify({ c, text }) })).json(); if (!r.ok) throw 0; waiting = { id: r.id, c };
+    setTimeout(() => { if (waiting && waiting.id === r.id) { waiting = null; toast('⚠️ لم يرد الكمبيوتر. تأكد أن Chrome مفتوح.'); } }, 20000);
+  } catch (e) { toast('⚠️ تعذّر الإرسال'); }
+}
+function showAck(c, a) {
+  if (!a.ok) return toast('⚠️ ' + (a.err || 'تعذّر التنفيذ'));
+  if (c === 'status') { liveStatus = `<div style="margin-top:10px"><b>👥 الحاضرون (${(a.people || []).length})</b><div>${esc((a.people || []).join('، ')) || '—'}</div>${(a.absent || []).length ? `<b class="r">الغائبون (${a.absent.length})</b><div>${esc(a.absent.join('، '))}</div>` : ''}</div>`; const i = $('#liveInfo'); if (i) i.innerHTML = liveStatus; }
+  toast({ ask: '✓ نُشر السؤال', summary: '✓ نُشر ملخص الدرس', end: '✓ أُنهيت الحصة', video: '✓ فُتح المقطع على الكمبيوتر' }[c] || '✓ تم');
+}
+
+// ===== تصدير الجدول للتقويم (تذكير أصلي على الجوال) =====
+function exportIcs() {
+  if (!Object.keys(S.grid).length) return toast('احفظ جدولك أولًا');
+  const subj = Object.fromEntries(S.my.map(m => [m.cls, m])), now = new Date(), st = new Date(now); st.setDate(now.getDate() - now.getDay());
+  const dt = (d, t) => { const [h, m] = t.split(':').map(Number); const x = new Date(d); x.setHours(h, m, 0, 0); return x.getFullYear() + pad(x.getMonth() + 1) + pad(x.getDate()) + 'T' + pad(x.getHours()) + pad(x.getMinutes()) + '00'; };
+  const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH'], L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//hadir.wasl.uk//AR', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:حصصي – حاضر المعلم', 'X-WR-TIMEZONE:Asia/Riyadh'];
+  for (const [k, cls] of Object.entries(S.grid)) {
+    const [d, p] = k.split('-').map(Number), t = S.per.times[p], day = new Date(st); day.setDate(st.getDate() + d);
+    const e = new Date(day); const em = mins(t) + Number(S.per.dur); const et = pad(Math.floor(em / 60)) + ':' + pad(em % 60); const m = subj[cls] || {};
+    L.push('BEGIN:VEVENT', 'UID:hadir-' + k + '-' + Date.now() + '@wasl.uk', 'DTSTAMP:' + dt(now, '00:00'), 'DTSTART;TZID=Asia/Riyadh:' + dt(day, t), 'DTEND;TZID=Asia/Riyadh:' + dt(day, et),
+      'RRULE:FREQ=WEEKLY;BYDAY=' + BYDAY[d], 'SUMMARY:' + cls + (m.subject ? ' – ' + m.subject : ''), ...(m.link ? ['URL:' + m.link, 'DESCRIPTION:رابط الحصة: ' + m.link] : []),
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:حصة ' + cls + ' بعد دقيقتين', 'TRIGGER:-PT2M', 'END:VALARM', 'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([L.join('\r\n')], { type: 'text/calendar' })); a.download = 'hisasi.ics'; a.click();
+  toast('افتح الملف واضغط «إضافة الكل» في التقويم', 5000);
+}
+
+const hk = location.hash.match(/k=([a-z0-9]{24,40})/); if (hk) { S.token = hk[1]; save(); history.replaceState(null, '', '/app'); setTimeout(() => toast('✓ رُبط بالكمبيوتر — جارٍ نسخ جدولك'), 300); }
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => { view = b.dataset.v; attId = null; render(); });
+render(); pullSched(false); pullLive();
+setInterval(pullLive, 3000); setInterval(() => { if (view === 'today' && !document.activeElement?.matches('input,textarea')) vToday(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { pullSched(false); pullLive(); render(); } });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/app/sw.js', { scope: '/app' }).catch(() => {});
+</script></body></html>

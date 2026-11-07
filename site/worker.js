@@ -2,8 +2,8 @@
 const RAW = 'https://raw.githubusercontent.com/makh1551/hadir-almoalem/main/';
 const SITE = 'https://hadir.wasl.uk';
 const MAP = { '/': 'site/index.html', '/guide': 'site/guide/index.html', '/faq': 'site/faq/index.html',
-  '/feedback': 'site/feedback/index.html', '/install': 'site/install/index.html', '/feedback/results': 'site/feedback/results.html' };
-const TYPES = { html: 'text/html; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', css: 'text/css', js: 'text/javascript' };
+  '/feedback': 'site/feedback/index.html', '/install': 'site/install/index.html', '/feedback/results': 'site/feedback/results.html', '/app': 'site/app/index.html' };
+const TYPES = { html: 'text/html; charset=utf-8', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', css: 'text/css', js: 'text/javascript', webmanifest: 'application/manifest+json' };
 const TOKEN = /^[a-z0-9]{24,40}$/;
 const json = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
 async function raw(path) { return fetch(RAW + path, { cf: { cacheTtl: 120, cacheEverything: true } }); }
@@ -11,7 +11,7 @@ async function page(path) {
   const r = await raw(path);
   if (!r.ok) return new Response('غير موجود', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
   const ext = path.split('.').pop();
-  return new Response(r.body, { headers: { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': 'public, max-age=300', 'x-robots-tag': path.includes('/m.') ? 'noindex' : 'all' } });
+  return new Response(r.body, { headers: { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': path.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300', 'x-robots-tag': path.includes('/m.') ? 'noindex' : 'all' } });
 }
 
 export default {
@@ -50,7 +50,7 @@ export default {
     if (/^\/m\/[a-z0-9]+$/.test(p)) return page('site/m.html');
 
     // التحكم من الجوال: كائن دائم لكل معلم (فوري ومتسق)
-    m = p.match(/^\/api\/ctl\/([a-z0-9]+)\/(cmd|state)$/);
+    m = p.match(/^\/api\/ctl\/([a-z0-9]+)\/(cmd|state|sched)$/);
     if (m) {
       if (!TOKEN.test(m[1])) return json({ ok: false }, 400);
       const stub = env.CTL.get(env.CTL.idFromName(m[1]));
@@ -78,6 +78,7 @@ export default {
     // الصفحات
     let path = MAP[p];
     if (!path && /^\/g\/[\w.-]+$/.test(p)) path = 'site/guide/' + p.slice(3);
+    if (!path && /^\/app\/[\w.-]+$/.test(p)) path = 'site/app/' + p.slice(5);
     if (!path) return Response.redirect(SITE + '/', 302);
     return page(path);
   }
@@ -98,10 +99,10 @@ export class Ctl {
         const cmd = { id: Date.now(), c: o.c, text: String(o.text || '').slice(0, 300), name: String(o.name || '').slice(0, 80) };
         await this.st.put('cmd', cmd); return J({ ok: true, id: cmd.id });
       }
-      o.at = Date.now(); await this.st.put('state', o); return J({ ok: true });
+      o.at = Date.now(); await this.st.put(k === 'sched' ? 'sched' : 'state', o); return J({ ok: true });
     }
     if (k === 'cmd') { const c = await this.st.get('cmd'); const after = Number(u.searchParams.get('after') || 0);
       return J(c && c.id > after && Date.now() - c.id < 120000 ? { cmd: c } : {}); }
-    return J((await this.st.get('state')) || {});
+    return J((await this.st.get(k === 'sched' ? 'sched' : 'state')) || {});
   }
 }
