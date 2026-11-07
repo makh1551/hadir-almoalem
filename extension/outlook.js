@@ -51,7 +51,7 @@
         if (cfg.known[key]?.link) { out[key] = { ...ev, link: cfg.known[key].link, video: cfg.known[key].video || '' }; continue; }
         // افتح بطاقة الحدث واقرأ الرابط
         el.scrollIntoView({ block: 'center' }); el.click(); await sleep(1600);
-        const pop = document.querySelector('[role="dialog"],[class*="callout"],[class*="Callout"]') || document;
+        const pop = [...document.querySelectorAll('[role="dialog"],[class*="callout"],[class*="Callout"]')].filter(x => x.getBoundingClientRect().width > 0).pop() || document;
         let link = findLink(pop), video = findVideo(pop);
         if (!link) {
           const url = location.href; el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await sleep(3500);
@@ -65,7 +65,8 @@
   }
 
   async function run() {
-    let cfg; try { cfg = await chrome.runtime.sendMessage({ t: 'syncWho' }); } catch (e) { return; }
+    let cfg = null;
+    for (let i = 0; i < 8 && !cfg; i++) { try { cfg = await chrome.runtime.sendMessage({ t: 'syncWho' }); } catch (e) {} if (!cfg) await sleep(1500); }
     if (!cfg) return;
     for (let i = 0; i < 20 && !document.querySelector('[role="button"][aria-label]'); i++) await sleep(1000);
     await sleep(3000);

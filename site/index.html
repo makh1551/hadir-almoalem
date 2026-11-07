@@ -1,7 +1,7 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>حاضر المعلم</title>
-<meta name="description" content="إضافة Chrome تساعد المعلم في حصص Teams: تفتح الحصة وتقفل مايكات الطلاب وكاميراتهم قبل دخوله، وترصد الحضور طوال الحصة.">
+<meta name="description" content="إضافة Chrome تدير حصص Teams آليًا من الأحد إلى الخميس: تسحب الاجتماعات من تقويم Outlook، وتفتح كل اجتماع في موعده، وتعطّل المايك والكاميرا للحضور، وتفتح مقطع الدرس، وتغلق الاجتماع عند نهايته.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--p:#0f766e;--p2:#14b8a6;--bg:#f5f8f7;--card:#fff;--tx:#14211f;--mut:#5b6b68;--bd:#e2e8e6}
@@ -22,30 +22,26 @@ code{background:#0f766e18;padding:1px 6px;border-radius:6px;direction:ltr;displa
 footer{text-align:center;color:var(--mut);font-size:13px;padding:24px 0 40px}
 </style></head><body>
 <header><div class="wrap"><h1>🎓 حاضر المعلم</h1>
-<p>مساعدك في حصص Teams الافتراضية: تعرف جدولك الأسبوعي، ويفتح كل حصة في موعدها ويقفل مايكات الطلاب وكاميراتهم قبل دخولك، ويبقى معك طوال الحصة يرصد الحضور، ثم ينهيها آليًا.</p>
-<a class="btn" href="/install">⚡ التثبيت على الكمبيوتر</a><a class="btn o" href="/app">📱 تطبيق الجوال</a><a class="btn o" href="/guide">📘 الدليل</a>
+<p>يدير حصص Teams آليًا من الأحد إلى الخميس: يسحب الاجتماعات من بريدك وتقويم Outlook، ويفتح كل اجتماع في موعده، ويعطّل المايك والكاميرا للحضور، ويفتح مقطع الدرس، ويغلق الاجتماع عند نهايته.</p>
+<a class="btn" href="/install">⚡ التثبيت على الكمبيوتر</a>
 <div class="ver" id="ver"></div></div></header>
 <main class="wrap">
 <div class="card"><div class="grid">
-<div class="f"><b>📅 جدولك مرة واحدة</b>صفوفك برابط Teams ثابت لكل صف، وحصصك في شبكة أسبوعية تتكرر تلقائيًا.</div>
-<div class="f"><b>🔒 قفل قبل دخولك</b>كتم الجميع وتعطيل المايك والكاميرا للطلاب.</div>
-<div class="f"><b>🎬 مقطع الدرس</b>يُجهَّز من التحضير، ويُنبَّه إن لم يوجد.</div>
-<div class="f"><b>👥 رصد الحضور</b>حاضر، متأخر، خرج مبكرًا، غائب — بالاسم.</div>
-<div class="f"><b>✋ رفع اليد والدردشة</b>تنبيه فوري وأنت تشرح.</div>
-<div class="f"><b>⏰ إنهاء آلي</b>تنبيه قبل النهاية ثم إغلاق الاجتماع.</div>
-<div class="f"><b>📋 الرصد السريع</b>نسخ الغائبين للرصد في مدرستي.</div>
-<div class="f"><b>📲 ملخص واتساب</b>ملخص اليوم بعد آخر حصة.</div>
+<div class="f"><b>📥 ١. يسحب الاجتماعات</b>من تقويم Outlook ودعوات البريد، كل صباح، لأيام الأحد–الخميس.</div>
+<div class="f"><b>▶️ ٢. يفتح الاجتماع</b>قبل موعده بدقيقة، ويدخله وحده.</div>
+<div class="f"><b>🔒 ٣. يعطّل المايك والكاميرا</b>للحضور، ويكتم الجميع.</div>
+<div class="f"><b>🎬 ٤. يفتح مقطع اليوتيوب</b>للدرس، وتعرضه للطلاب بـ Ctrl+Shift+1.</div>
+<div class="f"><b>⏹ ٥. يغلق الاجتماع</b>للجميع عند نهاية وقته.</div>
 </div></div>
 <div class="card" id="install"><h2>طريقة التثبيت</h2><ol>
-<li>نزّل <a href="/install">مثبّت حاضر المعلم</a> وشغّله؛ يضع الإضافة في مجلد ثابت ويحدّثها تلقائيًا.</li>
-<li>افتح <code>chrome://extensions</code> وفعّل «وضع المطوّر».</li>
-<li>اضغط «تحميل إضافة غير مُعبأة» واختر المجلد.</li>
-<li>من «الحصص»: أضف صفوفك ورابط اجتماع Teams المتكرر لكل صف، ثم حدّد حصصك في الجدول الأسبوعي.</li>
-<li>جرّب أولًا «حصة تجريبية الآن» في اجتماع تجريبي.</li></ol>
+<li>نزّل <a href="/install">مثبّت حاضر المعلم</a> وشغّله.</li>
+<li>افتح <code>chrome://extensions</code> ← «وضع المطوّر» ← «تحميل إضافة تم فك حزمتها» ← <code>%USERPROFILE%\HadirAlmoalem\extension</code></li>
+<li>سجّل الدخول في Teams وOutlook على الويب بحسابك في Chrome نفسه.</li>
+<li>من الإضافة: «اسحب اجتماعات الأسبوع»، والصق رابط يوتيوب لكل اجتماع إن لم يكن في الدعوة.</li>
+<li>أبقِ Chrome مفتوحًا — والباقي آلي.</li></ol>
 <p style="color:var(--mut);font-size:14px;margin:12px 0 0">التحديث تلقائي يوميًا عبر المثبّت. (أو <a href="/hadir-almoalem.zip">تنزيل الملف يدويًا</a>.)</p></div>
-<div class="card" style="font-size:14px;color:var(--mut)">المساعد يعمل معك لا بدلًا منك: إن لم تدخل الحصة خلال 10 دقائق أو غبت أكثر منها، يتوقف ويغادر.</div>
 </main>
-<div class="wrap" style="text-align:center;margin-bottom:10px"><a href="/guide">📘 الدليل المصوّر</a> · <a href="/faq">❓ أسئلة شائعة</a> · <a href="/feedback">📝 أرسل ملاحظاتك</a></div>
+<div class="wrap" style="text-align:center;margin-bottom:10px"><a href="/faq">❓ أسئلة شائعة</a> · <a href="/feedback">📝 أرسل ملاحظاتك</a></div>
 <footer>إعداد وتطوير: عبدالمجيد السيد · 0561955430</footer>
 <script>fetch('/version.json').then(r=>r.json()).then(v=>{document.getElementById('ver').textContent='الإصدار '+v.version+' — '+(v.notes||'')}).catch(()=>{})</script>
 </body></html>
