@@ -330,7 +330,10 @@ async function vStudents() {
     <div class="mut">في مدرستي: اختر «الفصل» ثم «بحث» حتى يظهر جدول الطلاب، ثم اسحب.</div>
     <div class="mut">افتح صفحة الفصل التي فيها أسماء الطلاب (أعضاء فريق الفصل في Teams، أو قائمة الفصل في مدرستي)، ثم اضغط «اسحب».</div>
     <label>الصف</label><input id="rCls" list="clsList" placeholder="السادس أ"><datalist id="clsList">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <div class="row" style="margin-top:8px"><button class="btn" id="pull">اسحب من الصفحة المفتوحة</button><button class="btn s" id="pullDiag">🩺 تشخيص السحب</button><span id="pullMsg" class="mut"></span></div><div id="bulk"></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="pullSel">✂️ اسحب المحدد</button><button class="btn s" id="pull">اسحب من الصفحة المفتوحة</button><button class="btn s" id="pullDiag">🩺 تشخيص السحب</button></div>
+    <div class="mut" style="margin-top:4px">«اسحب المحدد» يعمل في أي صفحة وأي حساب (مدير أو معلم): ظلّل الأسماء بالفأرة ثم اضغطه.</div>
+    <div class="row" style="margin-top:6px"><button class="btn s" id="xlBtn">📊 استيراد Excel من نور/مدرستي (كل الصفوف)</button><input type="file" id="xlFile" accept=".xlsx,.xls,.csv" style="display:none"></div>
+    <span id="pullMsg" class="mut"></span><div id="bulk"></div>
     <label>الأسماء (اسم في كل سطر — راجعها واحذف غير الطلاب)</label><textarea id="rNames">${esc(pulled.join('\n'))}</textarea>
     <div class="row"><button class="btn" id="rSave">حفظ قائمة الصف</button></div></details>`;
   for (const [k, v] of Object.entries(rosters)) {
@@ -339,6 +342,9 @@ async function vStudents() {
   }
   $('#main').innerHTML = h;
   $('#pull').onclick = pullNames;
+  $('#pullSel').onclick = pullSelection;
+  $('#xlBtn').onclick = () => $('#xlFile').click();
+  $('#xlFile').onchange = e => importExcel(e.target.files[0]);
   $('#pullDiag').onclick = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     try {
@@ -375,6 +381,96 @@ async function vStudents() {
   document.querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
     if (!confirm('حذف قائمة الصف؟')) return; const r = await get('rosters'); delete r[b.dataset.rd]; await set('rosters', r); render();
   });
+}
+
+// ===== أسماء الطلاب: تنظيف عام (لأي مصدر) =====
+const GRADES = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس'];
+const SEC = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
+function cleanNames(lines) {
+  const BAD = /(الصف|الفصل|الشعبة|رقم|هوية|سجل|جوال|تاريخ|الحالة|حاضر|غائب|متأخر|المجموع|العدد|الطلاب|اسم الطالب|المعلم|المدرسة|ابتدائي|متوسط|ثانوي|طباعة|تصدير|بحث|عرض|إجمالي)/;
+  const out = [];
+  for (let t of lines) {
+    t = String(t || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').replace(/\(.*?\)/g, ' ').replace(/[0-9٠-٩]+/g, ' ').replace(/[\-–—_•·▪●○*#|،,.:؛;\/\\]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (t.length < 6 || t.length > 60 || BAD.test(t)) continue;
+    const w = t.split(' '); if (w.length < 2 || w.length > 6) continue;
+    if (!/^[ء-ي' A-Za-z]+$/.test(t)) continue;
+    if (/^(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)(\s+\S{1,2})?$/.test(t)) continue;
+    out.push(t);
+  }
+  return [...new Set(out)];
+}
+// اسم صف موحّد: «الصف السادس الابتدائي» + «1» ← «السادس أ»
+function normCls(grade, sec) {
+  let g = String(grade || '').replace(/الصف|الابتدائي|الإبتدائي|ابتدائي|المتوسط|متوسط|الثانوي|ثانوي/g, ' ').replace(/\s+/g, ' ').trim();
+  const m = g.match(/(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)\s*(\S{1,2})?$/);
+  let s = String(sec ?? '').trim() || (m && m[2]) || '';
+  if (/^\d+$/.test(s)) s = SEC[Number(s) - 1] || s;
+  s = s.replace(/^\(|\)$/g, '');
+  return m ? (m[1].replace('الاول', 'الأول') + (s ? ' ' + s : '')) : (g + (s ? ' ' + s : '')).trim();
+}
+// 1) سحب النص المظلّل من أي صفحة
+async function pullSelection() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  let txt = '';
+  try { const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: () => String(window.getSelection() || '') }); txt = res.map(r => r.result || '').join('\n'); }
+  catch (e) { $('#pullMsg').textContent = 'لا يمكن القراءة من هذه الصفحة'; return; }
+  const names = cleanNames(txt.split(/\n|\t/));
+  if (!names.length) { $('#pullMsg').textContent = txt.trim() ? 'لم أجد أسماء في النص المحدد' : 'ظلّل الأسماء بالفأرة في الصفحة أولًا، ثم اضغط «اسحب المحدد»'; return; }
+  $('#rNames').value = names.join('\n'); $('#pullMsg').textContent = `✓ ${names.length} اسمًا — راجعها واكتب الصف ثم «حفظ قائمة الصف»`;
+}
+// 2) استيراد كشف Excel/CSV: يكتشف عمود الاسم وعمود الصف/الفصل ويوزّع الطلاب
+async function loadXlsx() { if (window.XLSX) return; await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'lib/xlsx.core.min.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
+async function importExcel(file) {
+  if (!file) return; $('#pullMsg').textContent = '⏳ جارٍ قراءة الملف…';
+  try {
+    await loadXlsx();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const groups = {}; let total = 0;
+    for (const sn of wb.SheetNames) {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '', raw: false });
+      // صف العناوين: أول صف فيه «اسم»
+      let hi = rows.findIndex(r => r.some(c => /اسم/.test(String(c)) && !/المدرسة|المعلم|ولي/.test(String(c))));
+      let nameCol = -1, gradeCol = -1, secCol = -1;
+      if (hi >= 0) {
+        const H = rows[hi].map(c => String(c).trim());
+        nameCol = H.findIndex(h => /اسم الطالب|^الاسم|اسم$|^اسم/.test(h) && !/المدرسة|المعلم|ولي|الفصل|الصف/.test(h));
+        gradeCol = H.findIndex(h => /^الصف|المرحلة|الصف الدراسي/.test(h));
+        secCol = H.findIndex(h => /الفصل|الشعبة/.test(h) && !/الدراسي الأول|الدراسي الثاني/.test(h));
+      }
+      if (nameCol < 0) { // بلا عناوين: العمود الذي فيه أكثر أسماء
+        const cols = Math.max(0, ...rows.map(r => r.length)); let best = 0;
+        for (let c = 0; c < cols; c++) { const n = cleanNames(rows.map(r => r[c])).length; if (n > best) { best = n; nameCol = c; } }
+        hi = -1;
+      }
+      if (nameCol < 0) continue;
+      // صف عام للورقة إن وُجد في أعلاها (مثل: الصف السادس – الفصل 1)
+      const top = rows.slice(0, Math.max(hi, 0)).flat().join(' ');
+      const topCls = (top.match(/(الأول|الاول|الثاني|الثالث|الرابع|الخامس|السادس)[^\n]{0,25}?(?:الفصل|الشعبة)?\s*[:\-]?\s*(\d{1,2}|[أ-ي])?/) || []);
+      for (const r of rows.slice(hi + 1)) {
+        const nm = cleanNames([r[nameCol]])[0]; if (!nm) continue;
+        let cls = gradeCol >= 0 || secCol >= 0 ? normCls(gradeCol >= 0 ? r[gradeCol] : topCls[0] || '', secCol >= 0 ? r[secCol] : '') : '';
+        if (!cls && topCls[1]) cls = normCls(topCls[1], topCls[2]);
+        if (!cls && wb.SheetNames.length > 1) cls = normCls(sn, '');
+        cls = cls || '—'; (groups[cls] = groups[cls] || []).push(nm); total++;
+      }
+    }
+    if (!total) { $('#pullMsg').textContent = 'لم أجد أسماء طلاب في الملف'; return; }
+    for (const k of Object.keys(groups)) groups[k] = [...new Set(groups[k])];
+    const cur = $('#rCls').value.trim();
+    $('#pullMsg').textContent = `✓ ${total} طالبًا في ${Object.keys(groups).length} صف — راجع أسماء الصفوف ثم احفظ`;
+    $('#bulk').innerHTML = `<div class="card" style="margin-top:8px"><b>📊 من الملف</b>${Object.entries(groups).map(([c, ns], i) => `<div class="row" style="margin-top:6px">
+      <input data-xc="${i}" value="${esc(c === '—' ? cur : c)}" placeholder="اسم الصف" style="flex:1"><span class="tag">${ns.length} طالب</span><button class="btn s" data-xv="${i}">عرض</button></div>`).join('')}
+      <div class="row" style="margin-top:8px"><button class="btn" id="xlSave">💾 حفظ كل الصفوف</button></div></div>`;
+    const list = Object.values(groups);
+    document.querySelectorAll('[data-xv]').forEach(b => b.onclick = () => { const i = +b.dataset.xv; $('#rCls').value = document.querySelector(`[data-xc="${i}"]`).value; $('#rNames').value = list[i].join('\n'); });
+    $('#xlSave').onclick = async () => {
+      const r = await get('rosters'), a = await get('autoRosters'); let n = 0, miss = 0;
+      list.forEach((ns, i) => { const c = document.querySelector(`[data-xc="${i}"]`).value.trim().replace(/^الصف\s+/, ''); if (!c) { miss++; return; } r[c] = ns; delete a[c]; n++; });
+      await set('rosters', r); await set('autoRosters', a);
+      $('#pullMsg').textContent = `✓ حُفظ ${n} صف` + (miss ? ` · ${miss} بلا اسم صف لم يُحفظ` : ''); setTimeout(render, 1200);
+    };
+  } catch (e) { $('#pullMsg').textContent = 'تعذّرت قراءة الملف: ' + (e.message || e); }
+  $('#xlFile').value = '';
 }
 
 // يُحقن في الصفحة المفتوحة ويجمع ما يشبه أسماء الأشخاص
