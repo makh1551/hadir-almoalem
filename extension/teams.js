@@ -112,7 +112,12 @@
   async function confirmDialog(words) {
     for (let i = 0; i < 6; i++) {
       const d = [...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].filter(vis).pop();
-      if (d) { const b = [...d.querySelectorAll('button')].filter(vis).find(x => words.includes(norm(x.textContent))); if (b) { press(b); await sleep(1000); return true; } }
+      if (d) {
+        const bs = [...d.querySelectorAll('button')].filter(vis).filter(x => !/^(إلغاء|Cancel|إغلاق|Close)$/i.test(norm(x.textContent)) && norm(x.textContent));
+        // «تعطيل الميكروفونات» / «تعطيل الكاميرات» / «كتم الصوت»…: يبدأ بإحدى الكلمات
+        const b = bs.find(x => words.some(w => norm(x.textContent) === norm(w) || norm(x.textContent).startsWith(norm(w))));
+        if (b) { press(b); await sleep(400); try { b.click(); } catch (e) {} await sleep(1000); return true; }
+      }
       await sleep(500);
     }
     return false;
