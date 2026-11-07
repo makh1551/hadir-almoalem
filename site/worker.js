@@ -11,7 +11,7 @@ async function page(path) {
   const r = await raw(path);
   if (!r.ok) return new Response('غير موجود', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
   const ext = path.split('.').pop();
-  return new Response(r.body, { headers: { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': path.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300', 'x-robots-tag': path.includes('/m.') ? 'noindex' : 'all' } });
+  return new Response(r.body, { headers: { 'content-type': TYPES[ext] || 'application/octet-stream', 'cache-control': path.endsWith('sw.js') ? 'no-cache' : 'public, max-age=300', ...(path.endsWith('sw.js') ? { 'service-worker-allowed': '/app' } : {}), 'x-robots-tag': path.includes('/m.') ? 'noindex' : 'all' } });
 }
 
 export default {
