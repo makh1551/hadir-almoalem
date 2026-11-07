@@ -21,9 +21,28 @@ powercfg /change standby-timeout-ac 0 >nul 2>&1
 powercfg /change hibernate-timeout-ac 0 >nul 2>&1
 powercfg /change monitor-timeout-ac 30 >nul 2>&1
 
-echo  [3/5] Open Chrome with Teams automatically when Windows starts ...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=@(\"$env:ProgramFiles\Google\Chrome\Application\chrome.exe\",\"${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe\",\"$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe\") | Where-Object { Test-Path $_ } | Select-Object -First 1; if ($c) { $s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\Hadir Classes.lnk'); $s.TargetPath=$c; $s.Arguments='--restore-last-session --auto-select-tab-capture-source-by-title=YouTube --autoplay-policy=no-user-gesture-required https://teams.microsoft.com/v2/'; $s.Save(); $d=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Hadir Chrome.lnk'); $d.TargetPath=$c; $d.Arguments=$s.Arguments; $d.Save(); 'ok' } else { 'nochrome' }" > "%TEMP%\hadir-chrome.txt"
-findstr /c:"nochrome" "%TEMP%\hadir-chrome.txt" >nul && echo   WARNING: Chrome was not found. Install Google Chrome, then run this file again.
+echo  [3/5] Chrome launcher with automatic video sharing ...
+set "CHR="
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHR=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+if not defined CHR if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHR=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
+if not defined CHR if exist "%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe" set "CHR=%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
+if not defined CHR (
+  echo   WARNING: Chrome was not found. Install Google Chrome, then run this file again.
+  goto :after_chrome
+)
+set "LCH=%USERPROFILE%\HadirAlmoalem\Hadir Chrome.bat"
+> "%LCH%" echo @echo off
+>>"%LCH%" echo taskkill /im chrome.exe /f ^>nul 2^>^&1
+>>"%LCH%" echo timeout /t 3 /nobreak ^>nul
+>>"%LCH%" echo start "" "%CHR%" --restore-last-session --auto-select-tab-capture-source-by-title=YouTube --autoplay-policy=no-user-gesture-required https://teams.microsoft.com/v2/
+set "STU=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+del /f /q "%STU%\Hadir Classes.lnk" >nul 2>&1
+copy /y "%LCH%" "%STU%\Hadir Chrome.bat" >nul
+del /f /q "%USERPROFILE%\Desktop\Hadir Chrome.lnk" >nul 2>&1
+if exist "%USERPROFILE%\Desktop" copy /y "%LCH%" "%USERPROFILE%\Desktop\Hadir Chrome.bat" >nul
+if exist "%USERPROFILE%\OneDrive\Desktop" copy /y "%LCH%" "%USERPROFILE%\OneDrive\Desktop\Hadir Chrome.bat" >nul
+echo        OK: "Hadir Chrome" is on the Desktop and runs at Windows start.
+:after_chrome
 
 echo  [4/5] Chrome settings for classes (no tab sleeping, Teams camera/mic allowed) ...
 reg add "HKCU\Software\Policies\Google\Chrome" /v HighEfficiencyModeEnabled /t REG_DWORD /d 0 /f >nul 2>&1
@@ -44,8 +63,11 @@ echo      %USERPROFILE%\HadirAlmoalem\extension
 echo   3- Windows auto sign-in: press Win+R, type  netplwiz
 echo      untick "Users must enter a user name and password"
 echo      (so the PC opens by itself after the nightly restart)
-echo   4- Close ALL Chrome windows, then open Chrome only from
-echo      the Desktop shortcut "Hadir Chrome" (or restart the PC)
+echo   4- Always open Chrome from "Hadir Chrome" on the Desktop
 echo   5- Leave the computer ON and plugged in. Nothing else.
 echo  ===========================================================
-pause
+echo.
+echo  Press any key to restart Chrome now with automatic sharing
+echo  (your open tabs will come back) ...
+pause >nul
+if defined LCH call "%LCH%"
