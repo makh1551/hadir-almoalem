@@ -1,6 +1,6 @@
 // حاضر المعلم — النافذة المنبثقة
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const DEF = { myClasses: [], periods: {}, settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {}, autoRosters: {} };
+const DEF = { myClasses: [], periods: {}, linkCheck: {}, settings: { teacherName: '', guardMin: 10, prepMin: 1, lateMin: 5, endWarnMin: 2, endMode: 'end', syncTimes: '06:30,20:30', weeks: 2, waPhone: '' }, classes: [], rosters: {}, sessions: {}, sync: {}, update: {}, autoRosters: {} };
 const classToday = (c, day, dow) => c.date ? c.date === day : (c.day !== undefined && c.day !== '' && Number(c.day) === dow);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -160,7 +160,8 @@ async function vClasses() {
     <div><label>الصف</label><select id="cClsSel"><option value="">— اختر الصف —</option>${clsOpts}<option value="__new">➕ صف جديد…</option></select><input id="cCls" placeholder="اكتب اسم الصف" style="display:none;margin-top:4px"></div>
     <div class="full"><label>الدرس</label><input id="cLesson"></div>
     <div class="full"><label>رابط اجتماع Teams</label><input id="cLink" placeholder="https://teams.microsoft.com/..."></div>
-    <div class="full"><label>رابط مقطع الدرس (من التحضير)</label><div class="row"><input id="cVideo" placeholder="https://..." style="flex:1"><button class="btn s" id="cSug">🔎 اقترح من عين</button></div><div id="sugOut"></div></div>
+    <div class="full"><label>رابط مقطع الدرس (من التحضير)</label><div class="row"><input id="cVideo" placeholder="https://..." style="flex:1"><button class="btn s" id="cSug">🔎 اقترح من عين</button></div>
+      <button class="btn s" id="cFromPage" style="margin-top:4px">📥 خذ الدرس والمقطع من الصفحة المفتوحة (تحضير مدرستي)</button><div id="sugOut"></div></div>
     <div class="full"><label>أسئلة الدرس للدردشة (سؤال في كل سطر — اختياري)</label><textarea id="cQs" style="min-height:60px" placeholder="إن تركتها فارغة تُستخدم أسئلة عامة من عنوان الدرس"></textarea></div>
   </div><div class="row" style="margin-top:8px"><button class="btn" id="cAdd">حفظ الحصة</button><span class="mut">تُفتح الحصة تلقائيًا قبل موعدها</span></div></div>`;
   const now = new Date().toISOString().slice(0, 10);
@@ -203,6 +204,19 @@ async function vClasses() {
     $('#cLesson').value = c.lesson || ''; $('#cLink').value = c.link || ''; $('#cVideo').value = c.video || ''; $('#cQs').value = c.questions || '';
     $('#cAdd').textContent = 'حفظ التعديل'; window.scrollTo(0, 0);
   });
+  $('#cFromPage').onclick = async () => {
+    const out = $('#sugOut');
+    try {
+      const tabs = await chrome.tabs.query({ currentWindow: true }), tab = tabs.filter(t => !/^chrome/.test(t.url || '')).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+      const res = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: lessonFromPage });
+      const vids = [...new Set(res.flatMap(r => r.result?.videos || []))], title = res.map(r => r.result?.title).find(Boolean) || '';
+      if (title && !$('#cLesson').value.trim()) $('#cLesson').value = title;
+      if (vids.length === 1) { $('#cVideo').value = vids[0]; out.innerHTML = `<div class="mut">✓ أُخذ المقطع${title ? ' والدرس «' + esc(title) + '»' : ''} من «${esc(tab.title || '')}»</div>`; }
+      else if (vids.length > 1) { out.innerHTML = `<div class="mut">وجدت ${vids.length} مقاطع — اختر:</div>` + vids.slice(0, 8).map(v => `<button class="btn s" data-pv="${esc(v)}" style="display:block;margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr">${esc(v)}</button>`).join('');
+        out.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { $('#cVideo').value = b.dataset.pv; out.innerHTML = '<div class="mut">✓ اختير المقطع</div>'; }); }
+      else out.innerHTML = `<div class="mut">لم أجد مقطعًا في «${esc(tab.title || 'الصفحة')}». افتح صفحة الدرس في التحضير (التي فيها المقطع) ثم أعد المحاولة.</div>`;
+    } catch (e) { out.innerHTML = '<div class="mut">تعذّرت قراءة الصفحة المفتوحة</div>'; }
+  };
   $('#cSug').onclick = () => suggestInto($('#cLesson').value, $('#cCls').value, url => { $('#cVideo').value = url; });
   if (pendingEdit) { const b = document.querySelector(`[data-edit="${pendingEdit}"]`); pendingEdit = null; if (b) b.click(); }
 }
@@ -304,12 +318,13 @@ async function vWeek() {
       <span class="big" style="flex:1;text-align:center">${weekOffset === 0 ? (lead ? 'الأسبوع القادم' : 'هذا الأسبوع') : weekOffset === 1 && !lead ? 'الأسبوع القادم' : 'أسبوع ' + days[0].toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' })}</span>
       <button class="btn s" id="wNext">التالي ›</button></div>
       <label class="row" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="pickMode" ${st.pickMode ? 'checked' : ''} style="width:18px;height:18px"><span>الحصص الجديدة من التقويم تنتظر اختياري (لا تُدار حتى أختارها)</span></label>
-      <div style="margin-top:6px">${total} حصة مختارة · ${missing ? `<b style="color:var(--amb)">${missing} تحتاج تجهيزًا</b>` : '<b style="color:var(--grn)">كلها جاهزة ✓</b>'}</div></div>` + body;
+      <div style="margin-top:6px">${total} حصة مختارة · ${missing ? `<b style="color:var(--amb)">${missing} تحتاج تجهيزًا</b>` : '<b style="color:var(--grn)">كلها جاهزة ✓</b>'}</div></div>` + (await checkCard()) + body;
   const setSkip = async (pred, skip) => { const cl = await get('classes'); for (const x of cl) if (pred(x)) x.skip = skip; await set('classes', cl); render(); };
   document.querySelectorAll('[data-on]').forEach(cb => cb.onchange = () => setSkip(x => x.id === cb.dataset.on, !cb.checked));
   document.querySelectorAll('[data-dayon]').forEach(b => b.onclick = () => { const [dt, dw, on] = b.dataset.dayon.split('|');
     setSkip(x => x.date ? x.date === dt : Number(x.day) === Number(dw), on !== '1'); });
   $('#pickMode').onchange = async e => { const s = await get('settings'); s.pickMode = e.target.checked; await set('settings', s); };
+  bindCheck();
   $('#wPrev').onclick = () => { weekOffset--; render(); };
   $('#wNext').onclick = () => { weekOffset++; render(); };
   document.querySelectorAll('[data-fix]').forEach(b => b.onclick = async () => {
@@ -381,6 +396,46 @@ async function vStudents() {
   document.querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
     if (!confirm('حذف قائمة الصف؟')) return; const r = await get('rosters'); delete r[b.dataset.rd]; await set('rosters', r); render();
   });
+}
+
+// ===== فحص الجاهزية =====
+const CK = { ok: ['✓ جاهز', 'ok'], guest: ['⚠️ يدخل كضيف', 'warn'], bad: ['✗ الرابط لا يعمل', 'bad'], timeout: ['⚠️ لم تظهر صفحة الانضمام', 'warn'], error: ['✗ خطأ', 'bad'], run: ['⏳ يُفحص', ''], wait: ['…', ''] };
+async function checkCard() {
+  const r = await get('linkCheck');
+  const items = r.items || [];
+  let h = `<div class="card"><div class="row"><b style="flex:1">🧪 فحص الجاهزية</b><button class="btn s" id="ckGo" ${r.running ? 'disabled' : ''}>${r.running ? '⏳ جارٍ الفحص…' : items.length ? 'أعد الفحص' : 'افحص روابط حصصي'}</button></div>
+    <div class="mut">يفتح رابط كل صف لثوانٍ دون الانضمام: يتأكد أن الرابط يعمل وأنك داخل Teams بحسابك (لا ضيف). روابط الأيام السبعة القادمة.</div>`;
+  if (items.length) {
+    const bad = items.filter(x => !['ok', 'run', 'wait'].includes(x.status)).length;
+    if (!r.running) h += `<div style="margin-top:6px">${bad ? `<b style="color:var(--red)">${bad} من ${items.length} تحتاج إصلاحًا</b>` : `<b style="color:var(--grn)">كل الروابط (${items.length}) جاهزة ✓</b>`} <span class="mut">· ${new Date(r.at).toLocaleString('ar-SA', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span></div>`;
+    h += items.map(x => `<div class="row" style="margin-top:4px;border-top:1px solid var(--bd);padding-top:4px"><span style="flex:1">${esc(x.cls)} <span class="mut">${x.start}</span></span><span class="tag ${CK[x.status]?.[1] || ''}">${CK[x.status]?.[0] || x.status}</span></div>
+      ${x.detail && x.status !== 'ok' ? `<div class="mut">${esc(x.detail)}</div>` : ''}${x.account ? `<div class="mut">الحساب: ${esc(x.account)}</div>` : ''}`).join('');
+    if (items.some(x => x.status === 'guest')) h += `<div class="mut" style="margin-top:6px">للإصلاح: افتح teams.microsoft.com في هذا المتصفح وسجّل الدخول بحسابك، ثم أعد الفحص.</div>`;
+  }
+  return h + '</div>';
+}
+function bindCheck() {
+  const b = $('#ckGo'); if (b) b.onclick = async () => { await chrome.runtime.sendMessage({ t: 'checkLinks' }); setTimeout(render, 600); };
+  clearInterval(bindCheck.iv);
+  bindCheck.iv = setInterval(async () => { if (view !== 'week') return clearInterval(bindCheck.iv); if ((await get('linkCheck')).running) render(); else clearInterval(bindCheck.iv); }, 3000);
+}
+
+// يُحقن في صفحة التحضير: عنوان الدرس وروابط المقاطع (يوتيوب، عين، فيميو، ملفات فيديو، إطارات مضمّنة)
+function lessonFromPage() {
+  const V = /(youtube\.com\/(watch|embed|shorts)|youtu\.be\/|ien\.edu\.sa|vimeo\.com|drive\.google\.com\/file|\.mp4(\?|$)|stream\.microsoft|sharepoint\.com\/.*\.(mp4|mov))/i;
+  const norm = u => { try { const x = new URL(u, location.href); const m = x.href.match(/youtube\.com\/embed\/([\w-]{6,})/); return m ? 'https://www.youtube.com/watch?v=' + m[1] : x.href; } catch (e) { return ''; } };
+  const urls = new Set();
+  document.querySelectorAll('a[href],iframe[src],video[src],source[src],[data-url],[data-src],[data-video]').forEach(e => {
+    for (const a of ['href', 'src', 'data-url', 'data-src', 'data-video']) { const v = e.getAttribute(a); if (v && V.test(v)) urls.add(norm(v)); }
+  });
+  (document.body?.innerText || '').match(/https?:\/\/\S+/g)?.forEach(u => { if (V.test(u)) urls.add(norm(u.replace(/[)\]،.]+$/, ''))); });
+  const pick = ['[class*="lesson"] h1', '[class*="lesson"] h2', '[class*="lesson-title"]', '[class*="LessonName"]', 'h1', 'h2', 'h3'];
+  let title = '';
+  for (const s of pick) { const e = document.querySelector(s); const t = (e?.innerText || '').trim(); if (t && t.length > 3 && t.length < 120 && !/مدرستي|منصة|الرئيسية/.test(t)) { title = t.split('\n')[0]; break; } }
+  const lb = [...document.querySelectorAll('label,th,dt,span,b,strong')].find(e => /^\s*(عنوان الدرس|اسم الدرس|الدرس)\s*:?\s*$/.test(e.textContent || ''));
+  const near = lb && (lb.nextElementSibling?.innerText || lb.parentElement?.innerText.replace(lb.textContent, '') || '').trim();
+  if (near && near.length < 120) title = near.split('\n')[0];
+  return { title: title.replace(/^الدرس\s*:?\s*/, ''), videos: [...urls].filter(Boolean) };
 }
 
 // ===== أسماء الطلاب: تنظيف عام (لأي مصدر) =====
@@ -570,7 +625,9 @@ async function vReports() {
   const list = Object.entries(sessions).filter(([, s]) => s.report).sort((a, b) => (b[1].day + b[1].start).localeCompare(a[1].day + a[1].start));
   if (!list.length) { $('#main').innerHTML = '<div class="card mut">لا تقارير بعد. يظهر التقرير هنا بعد انتهاء كل حصة.</div>'; return; }
   const clsNames = [...new Set(list.map(([, s]) => s.cls).filter(Boolean))];
-  let h = `<div class="card"><div class="row"><button class="btn" id="waDay">📲 ملخص اليوم على واتساب</button><button class="btn s" id="cpDay">نسخ الملخص</button></div>
+  const _d = new Date(), today_ = `${_d.getFullYear()}-${pad(_d.getMonth() + 1)}-${pad(_d.getDate())}`;
+  let h = `<div class="card"><div class="row"><button class="btn" id="rasdDay">📤 ارصد غياب اليوم في مدرستي</button><span class="mut">يفتح مدرستي ويعرض المعاينة قبل الحفظ</span></div>
+    <div class="row" style="margin-top:8px"><button class="btn s" id="waDay">📲 ملخص اليوم على واتساب</button><button class="btn s" id="cpDay">نسخ الملخص</button></div>
     <div class="row" style="margin-top:8px"><select id="wrCls">${clsNames.map(c => `<option>${esc(c)}</option>`).join('')}</select>
     <select id="wrWk"><option value="0">هذا الأسبوع</option><option value="-1">الأسبوع الماضي</option></select>
     <button class="btn s" id="wrGo">📄 تقرير الأسبوع PDF</button></div></div>`;
@@ -580,7 +637,7 @@ async function vReports() {
       <div class="mut">${esc(s.lesson)} · المعلم: ${s.teacherSeen || '—'}</div>
       <div class="row" style="margin:6px 0"><span class="tag ok">حاضر ${c('حاضر')}</span><span class="tag warn">متأخر ${c('متأخر')}</span>
       <span class="tag warn">خرج مبكرًا ${c('خرج')}</span><span class="tag bad">غائب ${c('غائب')}</span><span class="tag">✋ ${s.hands.length}</span><span class="tag">💬 ${s.chat.length}</span></div>
-      <div class="row"><button class="btn" data-rasd="${esc(k)}">📋 للرصد السريع</button><button class="btn s" data-csv="${esc(k)}">تنزيل CSV</button><button class="btn s" data-det="${esc(k)}">التفاصيل</button><button class="btn r" data-sdel="${esc(k)}">حذف</button></div>
+      <div class="row"><button class="btn" data-rasd="${esc(k)}">📤 ارصد في مدرستي</button><button class="btn s" data-csv="${esc(k)}">تنزيل CSV</button><button class="btn s" data-det="${esc(k)}">التفاصيل</button><button class="btn r" data-sdel="${esc(k)}">حذف</button></div>
       <div id="det-${btoa(unescape(encodeURIComponent(k))).replace(/=/g, '')}"></div></div>`;
   }
   $('#main').innerHTML = h;
@@ -588,13 +645,13 @@ async function vReports() {
   $('#wrGo').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL(`report.html?cls=${encodeURIComponent($('#wrCls').value)}&w=${$('#wrWk').value}`) });
   $('#waDay').onclick = () => chrome.runtime.sendMessage({ t: 'waSummary' });
   $('#cpDay').onclick = async () => { await navigator.clipboard.writeText(await chrome.runtime.sendMessage({ t: 'summaryText' })); $('#cpDay').textContent = '✓ نُسخ'; };
-  document.querySelectorAll('[data-rasd]').forEach(b => b.onclick = async () => {
-    const s = sessions[b.dataset.rasd];
-    const abs = s.report.filter(r => r.status === 'غائب').map(r => r.name);
-    await navigator.clipboard.writeText(abs.join('\n'));
-    alert(abs.length ? `نُسخ ${abs.length} غائب.\nفي «رصد الحضور السريع» اختر «يوجد غياب» والصق الأسماء، ثم ارصد.` : 'لا غياب في هذه الحصة. في «رصد الحضور السريع» اختر «جميع الطلاب حاضرون».');
-    chrome.tabs.create({ url: 'https://schools.madrasati.sa/SchoolStructure/ClassRooms' });
-  });
+  const rasd = async (day, ss) => {
+    const abs = [...new Set(ss.flatMap(s => s.report.filter(r => r.status === 'غائب').map(r => r.name)))];
+    const r = await chrome.runtime.sendMessage({ t: 'rasdMadrasati', day, names: abs });
+    if (!r?.ok) alert(r?.err || 'تعذّر فتح مدرستي');
+  };
+  document.querySelectorAll('[data-rasd]').forEach(b => b.onclick = () => { const s = sessions[b.dataset.rasd]; rasd(s.day, [s]); });
+  $('#rasdDay').onclick = () => { const ss = list.map(([, s]) => s).filter(s => s.day === today_ && !s.test); if (!ss.length) return alert('لا تقارير حصص اليوم بعد'); rasd(today_, ss); };
   document.querySelectorAll('[data-sdel]').forEach(b => b.onclick = async () => {
     if (!confirm('حذف التقرير؟')) return; const ss = await get('sessions'); delete ss[b.dataset.sdel]; await set('sessions', ss); render();
   });

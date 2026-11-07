@@ -423,9 +423,30 @@
     const iv = setInterval(tickR, 3000); push();
   }
 
+  // فحص الجاهزية: لا ينضم. يتأكد أن صفحة ما قبل الانضمام ظهرت، وأنك مسجّل بحسابك (لا ضيف)
+  async function checkMode() {
+    const BAD = /(انتهى هذا الاجتماع|لم يتم العثور|غير موجود|الرابط غير صالح|meeting has ended|couldn'?t find|not found|invalid|expired|انتهت صلاحية|ليس لديك حق|don'?t have permission|Something went wrong|حدث خطأ)/i;
+    for (let i = 0; i < 40; i++) {
+      await sleep(1000);
+      if (i > 3) await click(L.continueBrowser);
+      const txt = norm(document.body?.innerText || '').slice(0, 4000);
+      if (BAD.test(txt)) return send({ t: 'checkResult', r: { kind: 'bad', detail: (txt.match(BAD) || [''])[0] } });
+      const join = findBtn(L.joinNow);
+      if (join) {
+        const nameBox = [...document.querySelectorAll('input[type="text"],input:not([type])')].filter(vis).find(x => /اسم|name/i.test((x.getAttribute('placeholder') || '') + (x.getAttribute('aria-label') || '')));
+        if (nameBox) return send({ t: 'checkResult', r: { kind: 'guest', detail: 'غير مسجّل الدخول في Teams – سيدخل كضيف ولا يستطيع القفل' } });
+        const acc = [...document.querySelectorAll('[aria-label]')].map(e => e.getAttribute('aria-label')).find(a => /(الملف الشخصي|حسابك|Profile|Account manager|your account)/i.test(a || '')) || '';
+        return send({ t: 'checkResult', r: { kind: 'ok', account: acc.replace(/^(.*?)(الملف الشخصي|Profile)[^،,:]*[،,:]?\s*/i, '').slice(0, 80) } });
+      }
+      if (inMeeting()) return send({ t: 'checkResult', r: { kind: 'ok', detail: 'الاجتماع مفتوح' } });
+    }
+    send({ t: 'checkResult', r: { kind: 'timeout', detail: 'لم تظهر صفحة الانضمام خلال 40 ثانية' } });
+  }
+
   async function init() {
     let r; try { r = await send({ t: 'whoami' }); } catch (e) { return; }
     if (!r) return;
+    if (r.check) return checkMode();
     ctx = { ...r, handsNow: new Set(), chatSeen: new Set(), chatInit: false, mine: new Set() };
     Object.assign(seen, r.s.seen || {});
     if (['done', 'stopped'].includes(ctx.s.phase)) return;

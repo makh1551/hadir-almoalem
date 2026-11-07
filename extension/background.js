@@ -164,6 +164,7 @@ async function mergeCal(events) {
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   (async () => {
     if (m.t === 'whoami') {
+      if (CHK.tab && sender.tab?.id === CHK.tab) return reply({ check: true });
       const tabs = await get('tabs'); const key = tabs[sender.tab?.id];
       if (!key) return reply(null);
       const s = (await get('sessions'))[key]; if (!s) return reply(null);
@@ -233,6 +234,12 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       if (!st.ctlToken && m.enable) { const a = new Uint8Array(16); crypto.getRandomValues(a); st.ctlToken = [...a].map(x => x.toString(36).padStart(2, '0')).join('').slice(0, 30); await set('settings', st); }
       if (st.ctlToken) { await chrome.storage.local.remove('schedSig'); pushSched(); }
       reply(st.ctlToken ? { on: true, url: CLOUD + '/c/' + st.ctlToken } : { on: false });
+    } else if (m.t === 'rasdMadrasati') {
+      reply(await rasdMadrasati(m.day, m.names || []));
+    } else if (m.t === 'checkLinks') {
+      checkLinks(); reply(true);
+    } else if (m.t === 'checkResult') {
+      if (CHK.tab && sender.tab?.id === CHK.tab && CHK.done) CHK.done(m.r); reply(true);
     } else if (m.t === 'syncNow') {
       reply(await startSync());
     } else if (m.t === 'update') {
@@ -371,6 +378,55 @@ async function cloudSync() {
     report: s.report.map(r => ({ n: r.name, s: r.status })), hands: (s.hands || []).length,
     questions: (s.questions || []).map(q => ({ t: q.text, a: q.answers.slice(0, 5).map(a => a.name) })), summary: s.summary || '' }));
   try { await fetch(CLOUD + '/api/sync/' + st.cloudToken, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ teacher: st.teacherName, at: new Date().toISOString(), sessions: ss }) }); } catch (e) {}
+}
+
+// ===== فحص الجاهزية: يفتح رابط كل صف لثوانٍ (دون الانضمام) ويتأكد أنه صالح وأنك داخل بحسابك =====
+const CHK = { tab: null, done: null };
+async function checkLinks() {
+  const st = await get('settings'), now = new Date(), items = [], seen = new Set();
+  const classes = (await get('classes')).filter(c => c.link && !c.skip && !c.test);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now); d.setDate(now.getDate() + i); const day = ymd(d), dow = d.getDay();
+    for (const c of classes.filter(c => classToday(c, day, dow)).sort((a, b) => a.start.localeCompare(b.start))) {
+      if (seen.has(c.link)) continue; seen.add(c.link);
+      items.push({ id: c.id, cls: c.cls || c.lesson, day, start: c.start, link: c.link, status: 'wait' });
+    }
+  }
+  const res = { running: true, at: Date.now(), items, teacher: st.teacherName || '' };
+  await set('linkCheck', res);
+  if (!items.length) { res.running = false; await set('linkCheck', res); return; }
+  for (const it of items) {
+    it.status = 'run'; await set('linkCheck', res);
+    let tab;
+    try {
+      tab = await chrome.tabs.create({ url: it.link, active: false }); CHK.tab = tab.id;
+      const r = await new Promise(ok => { CHK.done = ok; setTimeout(() => ok({ kind: 'timeout' }), 50000); });
+      Object.assign(it, { status: r.kind, account: r.account || '', detail: r.detail || '' });
+    } catch (e) { it.status = 'error'; it.detail = String(e.message || e); }
+    CHK.tab = null; CHK.done = null; if (tab) chrome.tabs.remove(tab.id).catch(() => {});
+    await set('linkCheck', res);
+  }
+  res.running = false; res.at = Date.now(); await set('linkCheck', res);
+  const bad = items.filter(x => x.status !== 'ok').length;
+  note(bad ? `فحص الجاهزية: ${bad} من ${items.length} رابط يحتاج إصلاحًا – افتح الإضافة لترى التفاصيل` : `فحص الجاهزية: كل الروابط (${items.length}) جاهزة ✓`);
+}
+
+// ===== رصد الغياب في منصة مدرستي (بمحرك «رصد الحضور السريع»: فحص ← معاينة ← حفظ بتأكيد المستخدم) =====
+async function rasdMadrasati(day, names) {
+  let [tab] = await chrome.tabs.query({ url: 'https://schools.madrasati.sa/*' });
+  if (!tab) tab = await chrome.tabs.create({ url: 'https://schools.madrasati.sa/SchoolStructure/ClassRooms', active: true });
+  else await chrome.tabs.update(tab.id, { active: true }), await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  for (let i = 0; i < 40; i++) { const t = await chrome.tabs.get(tab.id); if (t.status === 'complete') { tab = t; break; } await new Promise(r => setTimeout(r, 500)); }
+  if (!/schools\.madrasati\.sa/.test(tab.url || '') || /login|Account\/Log/i.test(tab.url || '')) return { ok: false, err: 'سجّل الدخول في منصة مدرستي أولًا، ثم اضغط الزر مرة أخرى.' };
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['lib/madrasati-engine.js'] });
+    const [{ result } = {}] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, args: [day, names], func: (day, names) => {
+      if (!window.__smEngine) return 'noengine';
+      return window.__smEngine.open({ dates: [day], mode: names.length ? 'abs' : 'all', names, reason: 'رصد حضور حصة Teams (حاضر المعلم)', concurrency: 3 }) ? 'ok' : 'noschool';
+    } });
+    if (result === 'noschool') return { ok: false, err: 'افتح صفحة «الفصول المدرسية» في منصة مدرستي ثم أعد المحاولة.' };
+    return { ok: result === 'ok', err: result === 'ok' ? '' : 'تعذّر تشغيل الرصد في الصفحة' };
+  } catch (e) { return { ok: false, err: 'تعذّر الوصول لصفحة مدرستي: ' + e.message }; }
 }
 
 // ===== نسخ الجدول وأسماء الطلاب لتطبيق الجوال (عند تفعيل التحكم من الجوال) =====
