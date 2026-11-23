@@ -1,0 +1,188 @@
+{
+  "extension/background.js": {
+    "mtime": 1795433155.7582893,
+    "seen": 1795433205.3516195,
+    "ast_hash": "9a755e93414c91c8f5e17abc91322292",
+    "semantic_hash": ""
+  },
+  "extension/manifest.json": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.351626,
+    "ast_hash": "b1432f67f40f4b81ca03d59164930aee",
+    "semantic_hash": ""
+  },
+  "extension/outlook.js": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.351629,
+    "ast_hash": "46156e4e2766fa0aee10c2521dbec4a6",
+    "semantic_hash": ""
+  },
+  "extension/popup.js": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.351631,
+    "ast_hash": "d7cf4a4c5100f9babb68815440fdfcd2",
+    "semantic_hash": ""
+  },
+  "extension/teams-main.js": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.3516324,
+    "ast_hash": "bbea74680d906a60b2509a1b0cd48a70",
+    "semantic_hash": ""
+  },
+  "extension/teams.js": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.3516335,
+    "ast_hash": "ba22f67806fc81b49a091c109b102072",
+    "semantic_hash": ""
+  },
+  "site/app/sw.js": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516352,
+    "ast_hash": "c85723bbe4ff6416993ed4233480fcab",
+    "semantic_hash": ""
+  },
+  "site/worker.js": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516364,
+    "ast_hash": "8532618638f43812a9fd55a1dcbff53b",
+    "semantic_hash": ""
+  },
+  "version.json": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516378,
+    "ast_hash": "34a27f34427ef0d9843634431c47f377",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1795433155.7576392,
+    "seen": 1795433205.3516388,
+    "ast_hash": "6ac174ce8f915caee5a9053ebfe1d219",
+    "semantic_hash": ""
+  },
+  "extension/README.txt": {
+    "mtime": 1795433155.7576392,
+    "seen": 1795433205.3516397,
+    "ast_hash": "fd6968b430d83c9eaa5b360a273b54a3",
+    "semantic_hash": ""
+  },
+  "extension/popup.html": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.3516412,
+    "ast_hash": "370dfc481a394052457a846bcad062ba",
+    "semantic_hash": ""
+  },
+  "site/app/index.html": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516421,
+    "ast_hash": "21765dfb864cd1e8bb27460aa763d9b6",
+    "semantic_hash": ""
+  },
+  "site/c.html": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516433,
+    "ast_hash": "6fd8b248e45db8069b1b44e827c2251f",
+    "semantic_hash": ""
+  },
+  "site/faq/index.html": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516448,
+    "ast_hash": "72d5f00c867966f4b1d743ace34b831d",
+    "semantic_hash": ""
+  },
+  "site/feedback/index.html": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516457,
+    "ast_hash": "cc0da5d9da1612191153d6a6357c66ce",
+    "semantic_hash": ""
+  },
+  "site/feedback/results.html": {
+    "mtime": 1795433155.7599018,
+    "seen": 1795433205.3516467,
+    "ast_hash": "80694ec12276d256407ffc8f509f3e6f",
+    "semantic_hash": ""
+  },
+  "site/guide/index.html": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.351648,
+    "ast_hash": "9d0dd9ae18af2366c34e43903f410678",
+    "semantic_hash": ""
+  },
+  "site/index.html": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.351649,
+    "ast_hash": "23d0e62f55491e5ebee3491129e14581",
+    "semantic_hash": ""
+  },
+  "site/install/index.html": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516502,
+    "ast_hash": "58158eba929f51fb8af817d87c6b8f56",
+    "semantic_hash": ""
+  },
+  "site/m.html": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516517,
+    "ast_hash": "238374f76a76ba5e3974aaa581a91acf",
+    "semantic_hash": ""
+  },
+  "extension/icons/128.png": {
+    "mtime": 1795433155.7582893,
+    "seen": 1795433205.3516526,
+    "ast_hash": "f3bcfdf09ad03db140438c0446c715ab",
+    "semantic_hash": ""
+  },
+  "extension/icons/16.png": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.351654,
+    "ast_hash": "17a764aecbf78f3eaa6d758dedbee588",
+    "semantic_hash": ""
+  },
+  "extension/icons/48.png": {
+    "mtime": 1795433155.7584176,
+    "seen": 1795433205.3516552,
+    "ast_hash": "eefd978ff0a5d8bec88cdda20b3706ac",
+    "semantic_hash": ""
+  },
+  "site/app/icon-192.png": {
+    "mtime": 1795433155.7588804,
+    "seen": 1795433205.3516562,
+    "ast_hash": "61f96f9900b11810c45df827156c3cba",
+    "semantic_hash": ""
+  },
+  "site/app/icon-512.png": {
+    "mtime": 1795433155.7589056,
+    "seen": 1795433205.3516572,
+    "ast_hash": "6012e9694e6a8745816d89e1c5c633e0",
+    "semantic_hash": ""
+  },
+  "site/guide/1-today.webp": {
+    "mtime": 1795433155.7599018,
+    "seen": 1795433205.3516588,
+    "ast_hash": "f4256ee1da3f9b2d66f1bed345acf459",
+    "semantic_hash": ""
+  },
+  "site/guide/2-classes.webp": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516598,
+    "ast_hash": "e0b33df092726f377fb1965a25139ff2",
+    "semantic_hash": ""
+  },
+  "site/guide/3-students.webp": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516605,
+    "ast_hash": "15e984a0c9cec139a2ae638382605352",
+    "semantic_hash": ""
+  },
+  "site/guide/4-reports.webp": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.351662,
+    "ast_hash": "99f343bcc61ef54dd1ad3593bf573e71",
+    "semantic_hash": ""
+  },
+  "site/guide/5-settings.webp": {
+    "mtime": 1795433155.7603571,
+    "seen": 1795433205.3516634,
+    "ast_hash": "ace7bd698f080d5e862f71833b9654b2",
+    "semantic_hash": ""
+  }
+}
